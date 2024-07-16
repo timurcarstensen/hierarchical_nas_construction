@@ -23,7 +23,9 @@ class Architect:
             weight_decay=weight_decay,
         )
 
-    def _compute_unrolled_model(self, input, target, eta, network_optimizer):
+    def _compute_unrolled_model(
+        self, input, target, eta, network_optimizer
+    ):
         loss = self.model._loss(input, target)
         theta = _concat(self.model.parameters()).data
         try:
@@ -34,10 +36,14 @@ class Architect:
         except:
             moment = torch.zeros_like(theta)
         dtheta = (
-            _concat(torch.autograd.grad(loss, self.model.parameters())).data
+            _concat(
+                torch.autograd.grad(loss, self.model.parameters())
+            ).data
             + self.network_weight_decay * theta
         )
-        unrolled_model = self._construct_model_from_theta(theta.sub(eta, moment + dtheta))
+        unrolled_model = self._construct_model_from_theta(
+            theta.sub(eta, moment + dtheta)
+        )
         return unrolled_model
 
     def step(
@@ -78,7 +84,13 @@ class Architect:
         loss.backward()
 
     def _backward_step_unrolled(
-        self, input_train, target_train, input_valid, target_valid, eta, network_optimizer
+        self,
+        input_train,
+        target_train,
+        input_valid,
+        target_valid,
+        eta,
+        network_optimizer,
     ):
         unrolled_model = self._compute_unrolled_model(
             input_train, target_train, eta, network_optimizer
@@ -88,7 +100,9 @@ class Architect:
         unrolled_loss.backward()
         dalpha = [v.grad for v in unrolled_model.arch_parameters()]
         vector = [v.grad.data for v in unrolled_model.parameters()]
-        implicit_grads = self._hessian_vector_product(vector, input_train, target_train)
+        implicit_grads = self._hessian_vector_product(
+            vector, input_train, target_train
+        )
 
         for g, ig in zip(dalpha, implicit_grads):
             g.data.sub_(eta, ig.data)
@@ -112,7 +126,8 @@ class Architect:
         assert offset == len(theta)
         model_dict.update(params)
         model_new.load_state_dict(model_dict)
-        return model_new.cuda()
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        return model_new.to(device)
 
     def _hessian_vector_product(self, vector, input, target, r=1e-2):
         R = r / _concat(vector).norm()

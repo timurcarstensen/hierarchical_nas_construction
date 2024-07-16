@@ -385,8 +385,11 @@ def procedure(
         if mode == "train":
             scheduler.update(None, 1.0 * i / len(xloader))
 
-        inputs = inputs.cuda(non_blocking=True)
-        targets = targets.cuda(non_blocking=True)
+        device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+        inputs = inputs.to(device=device, non_blocking=True)
+        targets = targets.to(device=device, non_blocking=True)
         # forward
         with torch.cuda.amp.autocast():
             logits = network(inputs)
@@ -442,7 +445,8 @@ def evaluate_for_seed(
         scaler.load_state_dict(checkpoint["scaler_state_dict"])
         start_epoch = checkpoint["epochs_trained"]
 
-    model, criterion = model.cuda(), criterion.cuda()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model, criterion = model.to(device), criterion.to(device)
     for epoch in range(start_epoch, total_epochs):
         scheduler.update(epoch, 0.0)
         _ = procedure(

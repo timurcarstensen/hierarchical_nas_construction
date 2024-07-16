@@ -64,22 +64,34 @@ def _load_npy_data(dataset, path):
         raise ValueError(f"Path {path} is not a valid directory")
 
     if dataset == "addNIST":
-        train_x = np.load(os.path.join(path, "train_x.npy")).transpose((0, 2, 3, 1))
+        train_x = np.load(os.path.join(path, "train_x.npy")).transpose(
+            (0, 2, 3, 1)
+        )
         train_y = np.load(os.path.join(path, "train_y.npy"))
-        valid_x = np.load(os.path.join(path, "valid_x.npy")).transpose((0, 2, 3, 1))
+        valid_x = np.load(os.path.join(path, "valid_x.npy")).transpose(
+            (0, 2, 3, 1)
+        )
         valid_y = np.load(os.path.join(path, "valid_y.npy"))
-        test_x = np.load(os.path.join(path, "test_x.npy")).transpose((0, 2, 3, 1))
+        test_x = np.load(os.path.join(path, "test_x.npy")).transpose(
+            (0, 2, 3, 1)
+        )
         test_y = np.load(os.path.join(path, "test_y.npy"))
         # train_x = normalize(train_x)
         # valid_x = normalize(valid_x)
         # test_x = normalize(test_x)
         return train_x, train_y, valid_x, valid_y, test_x, test_y
     elif dataset == "cifarTile":
-        train_x = np.load(os.path.join(path, "train_x.npy")).transpose((0, 2, 3, 1))
+        train_x = np.load(os.path.join(path, "train_x.npy")).transpose(
+            (0, 2, 3, 1)
+        )
         train_y = np.load(os.path.join(path, "train_y.npy"))
-        valid_x = np.load(os.path.join(path, "valid_x.npy")).transpose((0, 2, 3, 1))
+        valid_x = np.load(os.path.join(path, "valid_x.npy")).transpose(
+            (0, 2, 3, 1)
+        )
         valid_y = np.load(os.path.join(path, "valid_y.npy"))
-        test_x = np.load(os.path.join(path, "test_x.npy")).transpose((0, 2, 3, 1))
+        test_x = np.load(os.path.join(path, "test_x.npy")).transpose(
+            (0, 2, 3, 1)
+        )
         test_y = np.load(os.path.join(path, "test_y.npy"))
         return train_x, train_y, valid_x, valid_y, test_x, test_y
     else:
@@ -103,7 +115,10 @@ def _get_transforms(dataset, args=None):
                 Cutout(args.cutout_length, args.cutout_prob)
             )
         valid_transform = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize(FMNIST_MEAN, FMNIST_STD)]
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(FMNIST_MEAN, FMNIST_STD),
+            ]
         )
     elif dataset == "cifar10":
         CIFAR_MEAN = [0.49139968, 0.48215827, 0.44653124]
@@ -228,7 +243,7 @@ def get_train_val_test_loaders(
     data,
     batch_size: int,
     train_portion: float = 0.8,
-    num_workers: int = 8,
+    num_workers: int = 4,
     eval_mode: bool = False,
 ):
     train_transform, valid_transform = _get_transforms(dataset)
@@ -237,34 +252,57 @@ def get_train_val_test_loaders(
             root=data, download=True, transform=train_transform
         )
         test_data = dset.FashionMNIST(
-            root=data, download=True, train=False, transform=valid_transform
+            root=data,
+            download=True,
+            train=False,
+            transform=valid_transform,
         )
     elif dataset == "cifar10":
         train_data = dset.CIFAR10(
-            root=data, train=True, download=True, transform=train_transform
+            root=data,
+            train=True,
+            download=True,
+            transform=train_transform,
         )
         test_data = dset.CIFAR10(
-            root=data, train=False, download=True, transform=valid_transform
+            root=data,
+            train=False,
+            download=True,
+            transform=valid_transform,
         )
     elif dataset == "cifar100":
         train_data = dset.CIFAR100(
-            root=data, train=True, download=True, transform=train_transform
+            root=data,
+            train=True,
+            download=True,
+            transform=train_transform,
         )
         test_data = dset.CIFAR100(
-            root=data, train=False, download=True, transform=valid_transform
+            root=data,
+            train=False,
+            download=True,
+            transform=valid_transform,
         )
     elif dataset == "svhn":
         train_data = dset.SVHN(
-            root=data, split="train", download=True, transform=train_transform
+            root=data,
+            split="train",
+            download=True,
+            transform=train_transform,
         )
         test_data = dset.SVHN(
-            root=data, split="test", download=True, transform=valid_transform
+            root=data,
+            split="test",
+            download=True,
+            transform=valid_transform,
         )
     elif dataset == "ImageNet16-120":
         raise NotImplementedError
 
     elif dataset == "addNIST":
-        train_x, train_y, valid_x, valid_y, test_x, test_y = _load_npy_data(dataset, data)
+        train_x, train_y, valid_x, valid_y, test_x, test_y = (
+            _load_npy_data(dataset, data)
+        )
         train_dataset = HelperDataset(train_x, train_y, train_transform)
         valid_dataset = HelperDataset(valid_x, valid_y, valid_transform)
         test_dataset = HelperDataset(test_x, test_y, valid_transform)
@@ -286,7 +324,9 @@ def get_train_val_test_loaders(
         )
         return train_loader, valid_loader, test_loader
     elif dataset == "cifarTile":
-        train_x, train_y, valid_x, valid_y, test_x, test_y = _load_npy_data(dataset, data)
+        train_x, train_y, valid_x, valid_y, test_x, test_y = (
+            _load_npy_data(dataset, data)
+        )
         train_dataset = HelperDataset(train_x, train_y, train_transform)
         valid_dataset = HelperDataset(valid_x, valid_y, valid_transform)
         test_dataset = HelperDataset(test_x, test_y, valid_transform)
@@ -326,7 +366,9 @@ def get_train_val_test_loaders(
         train_loader = torch.utils.data.DataLoader(
             train_data,
             batch_size=batch_size,
-            sampler=torch.utils.data.sampler.SubsetRandomSampler(indices[:split]),
+            sampler=torch.utils.data.sampler.SubsetRandomSampler(
+                indices[:split]
+            ),
             pin_memory=False,
             num_workers=num_workers,
         )
@@ -355,14 +397,22 @@ def get_train_val_test_loaders(
 
 def get_optimizer(optimizer: str, model: torch.nn.Module, **optim_kwargs):
     if optimizer not in dir(torch.optim):
-        raise ValueError(f"PyTorch has not implemented optimizer {optimizer} yet!")
-    return getattr(torch.optim, optimizer)(model.parameters(), **optim_kwargs)
+        raise ValueError(
+            f"PyTorch has not implemented optimizer {optimizer} yet!"
+        )
+    return getattr(torch.optim, optimizer)(
+        model.parameters(), **optim_kwargs
+    )
 
 
 def get_scheduler(scheduler: str, optimizer, **scheduler_kwargs):
     if scheduler not in dir(torch.optim.lr_scheduler):
-        raise ValueError(f"PyTorch has not implemented scheduler {scheduler} yet!")
-    return getattr(torch.optim.lr_scheduler, scheduler)(optimizer, **scheduler_kwargs)
+        raise ValueError(
+            f"PyTorch has not implemented scheduler {scheduler} yet!"
+        )
+    return getattr(torch.optim.lr_scheduler, scheduler)(
+        optimizer, **scheduler_kwargs
+    )
 
 
 def get_loss(loss_function: str, **loss_kwargs):
@@ -375,5 +425,7 @@ def get_loss(loss_function: str, **loss_kwargs):
 
 def get_evaluation_metric(metric: str, **metrics_kwargs):
     if metric not in dir(torchmetrics):
-        raise ValueError(f"Torchmetrics has not implemented metric {metric} yet!")
+        raise ValueError(
+            f"Torchmetrics has not implemented metric {metric} yet!"
+        )
     return getattr(torchmetrics, metric)(**metrics_kwargs)

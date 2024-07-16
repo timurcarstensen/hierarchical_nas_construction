@@ -11,7 +11,8 @@ from torch.utils.data import DataLoader
 def general_num_params(m):
     # return number of differential parameters of input model
     return sum(
-        np.prod(p.size()) for p in filter(lambda p: p.requires_grad, m.parameters())
+        np.prod(p.size())
+        for p in filter(lambda p: p.requires_grad, m.parameters())
     )
 
 
@@ -20,15 +21,25 @@ def reset_weights(m):
         m.reset_parameters()
 
 
-def train(model: nn.Module, optimizer: torch.optim.Optimizer, criterion,
-          loader: DataLoader, **train_args):
+def train(
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    criterion,
+    loader: DataLoader,
+    **train_args,
+):
     """
     Trains a model on a given loader for one epoch.
     """
     model.train()
-    grad_clip = train_args["grad_clip"] if "grad_clip" in train_args else None
+    grad_clip = (
+        train_args["grad_clip"] if "grad_clip" in train_args else None
+    )
     for data_blob in loader:
-        data, target = (x.cuda() for x in data_blob)
+        device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+        data, target = (x.to(device) for x in data_blob)
         optimizer.zero_grad()
         output = model.forward(data)
         loss = criterion(output, target)
@@ -39,8 +50,11 @@ def train(model: nn.Module, optimizer: torch.optim.Optimizer, criterion,
 
 
 @torch.no_grad()
-def evaluate(model: nn.Module, metric: torchmetrics.Metric | nn.Module,
-             loader: DataLoader) -> float:
+def evaluate(
+    model: nn.Module,
+    metric: torchmetrics.Metric | nn.Module,
+    loader: DataLoader,
+) -> float:
     """Evaluates a model on a given loader for one epoch."""
     model.eval()
     metric.reset()
@@ -185,7 +199,9 @@ if __name__ == "__main__":
     # pylint: enable=C0412
 
     parser = argparse.ArgumentParser(description="Train")
-    parser.add_argument("--dataset", help="Dataset to select.", required=True)
+    parser.add_argument(
+        "--dataset", help="Dataset to select.", required=True
+    )
     parser.add_argument(
         "--data_path",
         default="",
@@ -205,7 +221,9 @@ if __name__ == "__main__":
     model = models.resnet18(num_classes=num_classes)
     train_criterion = get_loss("CrossEntropyLoss")
     evaluation_metric = get_evaluation_metric("Accuracy", top_k=1)
-    optimizer = get_optimizer("SGD", model, lr=0.01, momentum=0.9, weight_decay=3e-4)
+    optimizer = get_optimizer(
+        "SGD", model, lr=0.01, momentum=0.9, weight_decay=3e-4
+    )
     scheduler = get_scheduler(
         scheduler="CosineAnnealingLR", optimizer=optimizer, T_max=n_epochs
     )

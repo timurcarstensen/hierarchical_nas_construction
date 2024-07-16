@@ -1,0 +1,31 @@
+defaults:
+  - _self_
+
+# Experiment configuration
+experiment:
+  search_space: nb201_variable_multi_multi
+  objective: nb201_cifar10
+  n_init: 10
+  max_evaluations_total: 150
+  pool_size: 200
+  mutate_size: 200
+  pool_strategy: evolution
+  p_self_crossover: 0.5
+  searcher: bayesian_optimization
+  surrogate_model: gpwl_hierarchical
+  acquisition: EI
+  seed: 777
+  no_isomorphism: false
+  maximum_noise: 0.01
+  log: false
+  random_interleave_prob: 0.0
+  working_directory: /Users/timurcarstensen/PycharmProjects/hierarchical_nas_construction/test
+  data_path: /Users/timurcarstensen/PycharmProjects/hierarchical_nas_construction/test
+  asynchronous_parallel: false
+  adjust_params: null
+
+
+# Hydra-specific configurations
+hydra:
+  run:
+    dir: ${experiment.working_directory}

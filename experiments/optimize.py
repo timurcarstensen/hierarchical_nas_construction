@@ -1,20 +1,15 @@
-import argparse
-import json
 import logging
 import os
 import random
 import time
 from functools import partial
+from pathlib import Path
 
+import hydra
 import neps
 import numpy as np
 import torch
-from neps.optimizers import SearcherMapping
-from neps.optimizers.bayesian_optimization.acquisition_functions import (
-    AcquisitionMapping,
-)
 from neps.optimizers.bayesian_optimization.acquisition_samplers import (
-    AcquisitionSamplerMapping,
     EvolutionSampler,
 )
 from neps.optimizers.bayesian_optimization.kernels import (
@@ -24,7 +19,7 @@ from neps.optimizers.bayesian_optimization.models.gp_hierarchy import (
     ComprehensiveGPHierarchy,
 )
 from neps.search_spaces.search_space import SearchSpace
-from path import Path
+from omegaconf import DictConfig
 
 # importing objectives
 from benchmarks.objectives.addNIST import AddNISTObjective
@@ -88,391 +83,316 @@ ObjectiveMapping = {
     "debug": run_debug_pipeline,
 }
 
-parser = argparse.ArgumentParser(description="Experiment runner")
-parser.add_argument(
-    "--search_space",
-    default="nb201",
-    help="The benchmark dataset to run the experiments.",
-)
-parser.add_argument(
-    "--objective",
-    default="nb201_cifar10",
-    help="The benchmark dataset to run the experiments.",
-    choices=ObjectiveMapping.keys(),
-)
-parser.add_argument(
-    "--n_init", type=int, default=10, help="number of initialising points"
-)
-parser.add_argument(
-    "--max_evaluations_total",
-    type=int,
-    default=150,
-    help="number of evaluations",
-)
-parser.add_argument(
-    "-ps",
-    "--pool_size",
-    type=int,
-    default=200,
-    help="number of candidates generated at each iteration",
-)
-parser.add_argument(
-    "-ms",
-    "--mutate_size",
-    type=int,
-    default=200,
-    help="number of candidates mutated at each iteration",
-)
-parser.add_argument(
-    "--pool_strategy",
-    default="evolution",
-    help="the pool generation strategy. Options: random," "mutation",
-    choices=AcquisitionSamplerMapping.keys(),
-)
-parser.add_argument(
-    "--p_self_crossover",
-    default=0.5,
-    type=float,
-    help="Self crossover probability",
-)
-parser.add_argument(
-    "-s",
-    "--searcher",
-    default="bayesian_optimization",
-    choices=SearcherMapping.keys(),
-)
-parser.add_argument(
-    "--surrogate_model",
-    default="gpwl_hierarchical",
-    choices=["gpwl", "gpwl_hierarchical", "gp_nasbot"],
-)
-parser.add_argument(
-    "-a",
-    "--acquisition",
-    default="EI",
-    help="the acquisition function for the BO algorithm.",
-    choices=AcquisitionMapping.keys(),
-)
-parser.add_argument("--seed", type=int, default=None)
-parser.add_argument(
-    "--no_isomorphism",
-    action="store_true",
-    help="Whether to allow mutation to return" "isomorphic architectures",
-)
-parser.add_argument(
-    "--maximum_noise",
-    default=0.01,
-    type=float,
-    help="The maximum amount of GP jitter noise variance",
-)
-parser.add_argument(
-    "--log",
-    action="store_true",
-    help="Whether to report the results in log scale",
-)
-parser.add_argument(
-    "--data_path",
-    default="data/",
-    help="Path to data dir.",
-)
-parser.add_argument(
-    "--random_interleave_prob",
-    default=0.0,
-    type=float,
-    help="Probability to interleave random samples",
-)
-parser.add_argument(
-    "--working_directory",
-    default=os.path.dirname(os.path.realpath(__file__)) + "/working_dir",
-    help="working directory",
-)
-parser.add_argument(
-    "--asynchronous_parallel",
-    action="store_true",
-    help="Run asynchronous parallel mode",
-)
-parser.add_argument(
-    "--adjust_params",
-    default=None,
-    choices=[None, "max"],
-    help="Adjust nof params of models",
-)
 
-args = parser.parse_args()
-
-args.working_directory = os.path.join(
-    args.working_directory, args.searcher
+@hydra.main(
+    version_base=None,
+    config_path="../configs",
+    config_name="base",
 )
-if "bayesian_optimization" in args.searcher:
-    args.working_directory += f"_{args.surrogate_model}"
-    args.working_directory += f"_{args.pool_strategy}"
-    args.working_directory += f"_pool{args.pool_size}"
-args.working_directory = os.path.join(
-    args.working_directory, f"{args.seed}"
-)
+def main(cfg: DictConfig):
+    base_directory = Path(__file__).parent.parent.resolve()
+    working_directory = os.path.join(
+        base_directory,
+        f"{cfg.experiment.working_directory}/{cfg.experiment.searcher}",
+    )
+    data_path = os.path.join(base_directory, cfg.experiment.data_path)
 
-working_dir = Path(args.working_directory)
-working_dir.makedirs_p()
-with open(working_dir / "args.json", "w") as f:
-    json.dump(args.__dict__, f, indent=4)
-
-if "nb201_" in args.objective or "act_" in args.objective:
-    # Gets the run pipeline and calls it with the given arguments
-    run_pipeline_fn = ObjectiveMapping[args.objective](
-        data_path=args.data_path, seed=args.seed, log_scale=args.log
+    if "bayesian_optimization" in cfg.experiment.searcher:
+        working_directory += f"_{cfg.experiment.surrogate_model}"
+        working_directory += f"_{cfg.experiment.pool_strategy}"
+        working_directory += f"_pool{cfg.experiment.pool_size}"
+    working_directory = os.path.join(
+        working_directory, f"{cfg.experiment.seed}"
     )
 
-    # Gets the dataset from the objective name
-    idx = args.search_space.find("_")
-    dataset = args.objective[args.objective.find("_") + 1 :]
-    # TODO: this spits out nb20 for nb201
-    search_space_key = args.search_space[:idx]
-
-    # adjust params an only be max or None -> could also be a boolean flag
-    if args.adjust_params is not None and "nb201_" in args.objective:
-        assert args.adjust_params in ["max"]
-
-        # Creates a pipeline space with the neps SearchSpace class
-        pipeline_space = dict(
-            architecture=SearchSpaceMapping[search_space_key](
-                space="fixed_1_none", dataset=dataset, adjust_params=None
-            ),
+    if (
+        "nb201_" in cfg.experiment.objective
+        or "act_" in cfg.experiment.objective
+    ):
+        # Gets the run pipeline and calls it with the given arguments
+        run_pipeline_fn = ObjectiveMapping[cfg.experiment.objective](
+            data_path=data_path,
+            seed=cfg.experiment.seed,
+            log_scale=cfg.experiment.log,
         )
-        pipeline_space = SearchSpace(**pipeline_space)
-        if args.adjust_params == "max":
-            identifier = (
-                "(CELL Cell (OPS conv3x3) (OPS conv3x3) (OPS conv3x3)"
-                " (OPS conv3x3) (OPS conv3x3) (OPS conv3x3))"
+
+        # Gets the dataset from the objective name
+        idx = cfg.experiment.search_space.find("_")
+        dataset = cfg.experiment.objective[
+            cfg.experiment.objective.find("_") + 1 :
+        ]
+        # TODO: this spits out nb20 for nb201
+        search_space_key = cfg.experiment.search_space[:idx]
+
+        # adjust params an only be max or None -> could also be a boolean flag
+        if (
+            cfg.experiment.adjust_params is not None
+            and "nb201_" in cfg.experiment.objective
+        ):
+            assert cfg.experiment.adjust_params in ["max"]
+
+            # Creates a pipeline space with the neps SearchSpace class
+            pipeline_space = dict(
+                architecture=SearchSpaceMapping[search_space_key](
+                    space="fixed_1_none",
+                    dataset=dataset,
+                    adjust_params=None,
+                ),
             )
-        else:
-            raise NotImplementedError
+            pipeline_space = SearchSpace(**pipeline_space)
+            if cfg.experiment.adjust_params == "max":
+                identifier = (
+                    "(CELL Cell (OPS conv3x3) (OPS conv3x3) (OPS conv3x3)"
+                    " (OPS conv3x3) (OPS conv3x3) (OPS conv3x3))"
+                )
+            else:
+                raise NotImplementedError
 
-        # Loads the pipeline space from the identifier
-        pipeline_space.load_from({"architecture": identifier})
-        model = pipeline_space.hyperparameters[
-            "architecture"
-        ].to_pytorch()
+            # Loads the pipeline space from the identifier
+            pipeline_space.load_from({"architecture": identifier})
+            model = pipeline_space.hyperparameters[
+                "architecture"
+            ].to_pytorch()
 
-        # check whether the model takes the correct input shape
-        if dataset in ["cifar10", "cifar100"]:
-            _ = model(torch.rand(1, 3, 32, 32))
-        elif dataset == "ImageNet16-120":
-            _ = model(torch.rand(1, 3, 16, 16))
-        elif dataset == "addNIST":
-            _ = model(torch.rand(1, 3, 28, 28))
-        elif dataset == "cifarTile":
-            _ = model(torch.rand(1, 3, 64, 64))
-        else:
-            raise NotImplementedError
+            # check whether the model takes the correct input shape
+            if dataset in ["cifar10", "cifar100"]:
+                _ = model(torch.rand(1, 3, 32, 32))
+            elif dataset == "ImageNet16-120":
+                _ = model(torch.rand(1, 3, 16, 16))
+            elif dataset == "addNIST":
+                _ = model(torch.rand(1, 3, 28, 28))
+            elif dataset == "cifarTile":
+                _ = model(torch.rand(1, 3, 64, 64))
+            else:
+                raise NotImplementedError
 
-        args.adjust_params = sum(p.numel() for p in model.parameters())
+            cfg.experiment.adjust_params = sum(
+                p.numel() for p in model.parameters()
+            )
 
-    return_graph_per_hierarchy = (
-        True
-        if args.surrogate_model
-        in ("gpwl_hierarchical", "gpwl", "gp_nasbot")
-        else False
-    )
-    if "nb201_" in args.objective:
-        search_space = SearchSpaceMapping[search_space_key](
-            space=args.search_space[idx + 1 :],
-            dataset=dataset,
-            # adjust_params=args.adjust_params,
-            return_graph_per_hierarchy=return_graph_per_hierarchy,
-        )
-    elif "act_" in args.objective:
-        search_space = SearchSpaceMapping[search_space_key](
-            dataset=dataset,
-            return_graph_per_hierarchy=return_graph_per_hierarchy
-            if args.surrogate_model
+        return_graph_per_hierarchy = (
+            True
+            if cfg.experiment.surrogate_model
             in ("gpwl_hierarchical", "gpwl", "gp_nasbot")
-            else False,
+            else False
+        )
+        if "nb201_" in cfg.experiment.objective:
+            search_space = SearchSpaceMapping[search_space_key](
+                space=cfg.experiment.search_space[idx + 1 :],
+                dataset=dataset,
+                # adjust_params=cfg.experiment.adjust_params,
+                return_graph_per_hierarchy=return_graph_per_hierarchy,
+            )
+        elif "act_" in cfg.experiment.objective:
+            search_space = SearchSpaceMapping[search_space_key](
+                dataset=dataset,
+                return_graph_per_hierarchy=return_graph_per_hierarchy
+                if cfg.experiment.surrogate_model
+                in ("gpwl_hierarchical", "gpwl", "gp_nasbot")
+                else False,
+            )
+
+    elif "darts" == cfg.experiment.objective:
+        run_pipeline_fn = ObjectiveMapping[cfg.experiment.objective](
+            data_path=data_path,
+            seed=cfg.experiment.seed,
+            log_scale=cfg.experiment.log,
+        )
+        search_space = dict(
+            normal=SearchSpaceMapping["darts"](),
+            reduce=SearchSpaceMapping["darts"](),
+        )
+        cfg.experiment.pool_strategy = partial(
+            EvolutionSampler, p_crossover=0.0, patience=10
+        )
+    # run the debug pipeline
+    elif "debug" == cfg.experiment.objective:
+        run_pipeline_fn = ObjectiveMapping[cfg.experiment.objective]
+        idx = cfg.experiment.search_space.find("_")
+        dataset = cfg.experiment.objective[
+            cfg.experiment.objective.find("_") + 1 :
+        ]
+
+        search_space = SearchSpaceMapping[
+            cfg.experiment.search_space[:idx]
+        ](space=cfg.experiment.search_space[idx + 1 :], dataset="cifar10")
+    else:
+        raise NotImplementedError(
+            f"Objective {cfg.experiment.objective} not implemented"
         )
 
-elif "darts" == args.objective:
-    run_pipeline_fn = ObjectiveMapping[args.objective](
-        data_path=args.data_path, seed=args.seed, log_scale=args.log
-    )
-    search_space = dict(
-        normal=SearchSpaceMapping["darts"](),
-        reduce=SearchSpaceMapping["darts"](),
-    )
-    args.pool_strategy = partial(
-        EvolutionSampler, p_crossover=0.0, patience=10
-    )
-# run the debug pipeline
-elif "debug" == args.objective:
-    run_pipeline_fn = ObjectiveMapping[args.objective]
-    idx = args.search_space.find("_")
-    dataset = args.objective[args.objective.find("_") + 1 :]
-
-    search_space = SearchSpaceMapping[args.search_space[:idx]](
-        space=args.search_space[idx + 1 :], dataset="cifar10"
-    )
-else:
-    raise NotImplementedError(
-        f"Objective {args.objective} not implemented"
-    )
-
-match args.surrogate_model:
-    case "gpwl_hierarchical":
-        hierarchy_considered = hierarchies_considered_in_search_space[
-            args.search_space
-        ]
-        graph_kernels = ["wl"] * (len(hierarchy_considered) + 1)
-        wl_h = [2, 1] + [2] * len(hierarchy_considered)
-        graph_kernels = [
-            GraphKernelMapping[kernel](
-                h=wl_h[j],
-                oa=False,
-                se_kernel=None,
-            )
-            for j, kernel in enumerate(graph_kernels)
-        ]
-        surrogate_model = ComprehensiveGPHierarchy
-        surrogate_model_args = {
-            "graph_kernels": graph_kernels,
-            "hp_kernels": [],
-            "verbose": False,
-            "hierarchy_consider": hierarchy_considered,
-            "d_graph_features": 0,
-            "vectorial_features": None,
-        }
-    case "gpwl":
-        hierarchy_considered = None if args.objective == "darts" else []
-        if args.objective == "darts":
-            graph_kernels = ["wl", "wl"]
-            wl_h = [2, 2]
-        else:
-            graph_kernels = ["wl"]
-            wl_h = [2]
-        graph_kernels = [
-            GraphKernelMapping[kernel](
-                h=wl_h[j],
-                oa=False,
-                se_kernel=None,
-            )
-            for j, kernel in enumerate(graph_kernels)
-        ]
-        surrogate_model = ComprehensiveGPHierarchy
-        surrogate_model_args = {
-            "graph_kernels": graph_kernels,
-            "hp_kernels": [],
-            "verbose": False,
-            "hierarchy_consider": hierarchy_considered,
-            "d_graph_features": 0,
-            "vectorial_features": None,
-        }
-
-    case "gp_nasbot":
-        hierarchy_considered = []
-        graph_kernels = ["nasbot"]
-        if "nb201_variable_multi_multi" == args.search_space:
-            include_op_list = [
-                "id",
-                "zero",
-                "avg_pool",
-                "conv3x3o",
-                "conv1x1o",
-                "dconv3x3o",
-                "batch",
-                "instance",
-                "layer",
-                "relu",
-                "hardswish",
-                "mish",
-                "resBlock",
+    match cfg.experiment.surrogate_model:
+        case "gpwl_hierarchical":
+            hierarchy_considered = hierarchies_considered_in_search_space[
+                cfg.experiment.search_space
             ]
-            exclude_op_list = ["input", "output"]
-        else:
-            raise NotImplementedError
-        graph_kernels = [
-            GraphKernelMapping[kernel](
-                include_op_list=include_op_list,
-                exclude_op_list=exclude_op_list,
+            graph_kernels = ["wl"] * (len(hierarchy_considered) + 1)
+            wl_h = [2, 1] + [2] * len(hierarchy_considered)
+            graph_kernels = [
+                GraphKernelMapping[kernel](
+                    h=wl_h[j],
+                    oa=False,
+                    se_kernel=None,
+                )
+                for j, kernel in enumerate(graph_kernels)
+            ]
+            surrogate_model = ComprehensiveGPHierarchy
+            surrogate_model_args = {
+                "graph_kernels": graph_kernels,
+                "hp_kernels": [],
+                "verbose": False,
+                "hierarchy_consider": hierarchy_considered,
+                "d_graph_features": 0,
+                "vectorial_features": None,
+            }
+        case "gpwl":
+            hierarchy_considered = (
+                None if cfg.experiment.objective == "darts" else []
             )
-            for kernel in graph_kernels
-        ]
-        surrogate_model = ComprehensiveGPHierarchy
-        surrogate_model_args = {
-            "graph_kernels": graph_kernels,
-            "hp_kernels": [],
-            "verbose": False,
-            "hierarchy_consider": hierarchy_considered,
-            "d_graph_features": 0,
-            "vectorial_features": None,
-        }
+            if cfg.experiment.objective == "darts":
+                graph_kernels = ["wl", "wl"]
+                wl_h = [2, 2]
+            else:
+                graph_kernels = ["wl"]
+                wl_h = [2]
+            graph_kernels = [
+                GraphKernelMapping[kernel](
+                    h=wl_h[j],
+                    oa=False,
+                    se_kernel=None,
+                )
+                for j, kernel in enumerate(graph_kernels)
+            ]
+            surrogate_model = ComprehensiveGPHierarchy
+            surrogate_model_args = {
+                "graph_kernels": graph_kernels,
+                "hp_kernels": [],
+                "verbose": False,
+                "hierarchy_consider": hierarchy_considered,
+                "d_graph_features": 0,
+                "vectorial_features": None,
+            }
 
-    case _:
-        raise NotImplementedError
+        case "gp_nasbot":
+            hierarchy_considered = []
+            graph_kernels = ["nasbot"]
+            if (
+                "nb201_variable_multi_multi"
+                == cfg.experiment.search_space
+            ):
+                include_op_list = [
+                    "id",
+                    "zero",
+                    "avg_pool",
+                    "conv3x3o",
+                    "conv1x1o",
+                    "dconv3x3o",
+                    "batch",
+                    "instance",
+                    "layer",
+                    "relu",
+                    "hardswish",
+                    "mish",
+                    "resBlock",
+                ]
+                exclude_op_list = ["input", "output"]
+            else:
+                raise NotImplementedError
+            graph_kernels = [
+                GraphKernelMapping[kernel](
+                    include_op_list=include_op_list,
+                    exclude_op_list=exclude_op_list,
+                )
+                for kernel in graph_kernels
+            ]
+            surrogate_model = ComprehensiveGPHierarchy
+            surrogate_model_args = {
+                "graph_kernels": graph_kernels,
+                "hp_kernels": [],
+                "verbose": False,
+                "hierarchy_consider": hierarchy_considered,
+                "d_graph_features": 0,
+                "vectorial_features": None,
+            }
 
-if args.seed is not None:
-    if hasattr(run_pipeline_fn, "set_seed"):
-        run_pipeline_fn.set_seed(args.seed)
-    np.random.seed(args.seed)
-    random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    if torch.cuda.is_available():
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.enabled = True
-        torch.backends.cudnn.deterministic = True
-        torch.cuda.manual_seed_all(args.seed)
+        case _:
+            raise NotImplementedError
 
-logging.basicConfig(level=logging.INFO)
+    if cfg.experiment.seed is not None:
+        if hasattr(run_pipeline_fn, "set_seed"):
+            run_pipeline_fn.set_seed(cfg.experiment.seed)
+        np.random.seed(cfg.experiment.seed)
+        random.seed(cfg.experiment.seed)
+        torch.manual_seed(cfg.experiment.seed)
+        if torch.cuda.is_available():
+            torch.backends.cudnn.benchmark = False
+            torch.backends.cudnn.enabled = True
+            torch.backends.cudnn.deterministic = True
+            torch.cuda.manual_seed_all(cfg.experiment.seed)
 
-if not isinstance(search_space, dict) and not isinstance(
-    search_space, SearchSpace
-):
-    search_space = {"architecture": search_space}
+    logging.basicConfig(level=logging.INFO)
 
-match args.searcher:
-    case "bayesian_optimization":
-        patience = 10 if "fixed_1_none" in args.search_space else 100
-        neps.run(
-            run_pipeline=run_pipeline_fn,
-            pipeline_space=search_space,
-            working_directory=args.working_directory,
-            max_evaluations_total=args.max_evaluations_total,
-            searcher=args.searcher,
-            acquisition=args.acquisition,
-            acquisition_sampler=args.pool_strategy,
-            surrogate_model=surrogate_model,
-            surrogate_model_args=surrogate_model_args,
-            initial_design_size=args.n_init,
-            patience=patience,
-        )
+    if not isinstance(search_space, dict) and not isinstance(
+        search_space, SearchSpace
+    ):
+        search_space = {"architecture": search_space}
 
-    # when using AREA as described in https://arxiv.org/pdf/2006.04647
-    case "assisted_regularized_evolution":
-        zc_proxy = ZeroCost(
-            method_type="nwot",
-            n_classes=run_pipeline_fn.num_classes,
-            loss_fn=None,
-        )
-        extract_model = lambda x: x["architecture"].to_pytorch()
-        zc_proxy_evaluation = partial(
-            evaluate,
-            zc_proxy=zc_proxy,
-            loader=run_pipeline_fn.get_train_loader(),
-            extract_model=extract_model,
-        )
-        neps.run(
-            run_pipeline=run_pipeline_fn,
-            pipeline_space=search_space,
-            working_directory=args.working_directory,
-            max_evaluations_total=args.max_evaluations_total,
-            searcher=args.searcher,
-            assisted_zero_cost_proxy=zc_proxy_evaluation,
-            assisted_init_population_dir=Path(args.working_directory)
-            / "assisted_init_population",
-            initial_design_size=args.n_init,
-        )
-    case _:
-        neps.run(
-            run_pipeline=run_pipeline_fn,
-            pipeline_space=search_space,
-            working_directory=args.working_directory,
-            max_evaluations_total=args.max_evaluations_total,
-            searcher=args.searcher,
-            initial_design_size=args.n_init,
-        )
+    match cfg.experiment.searcher:
+        case "bayesian_optimization":
+            patience = (
+                10
+                if "fixed_1_none" in cfg.experiment.search_space
+                else 100
+            )
+            neps.run(
+                run_pipeline=run_pipeline_fn,
+                pipeline_space=search_space,
+                working_directory=working_directory,
+                max_evaluations_total=cfg.experiment.max_evaluations_total,
+                searcher=cfg.experiment.searcher,
+                acquisition=cfg.experiment.acquisition,
+                acquisition_sampler=cfg.experiment.pool_strategy,
+                surrogate_model=surrogate_model,
+                surrogate_model_args=surrogate_model_args,
+                initial_design_size=cfg.experiment.n_init,
+                patience=patience,
+            )
+
+        # when using AREA as described in https://arxiv.org/pdf/2006.04647
+        case "assisted_regularized_evolution":
+            zc_proxy = ZeroCost(
+                method_type="nwot",
+                n_classes=run_pipeline_fn.num_classes,
+                loss_fn=None,
+            )
+            extract_model = lambda x: x["architecture"].to_pytorch()
+            zc_proxy_evaluation = partial(
+                evaluate,
+                zc_proxy=zc_proxy,
+                loader=run_pipeline_fn.get_train_loader(),
+                extract_model=extract_model,
+            )
+            neps.run(
+                run_pipeline=run_pipeline_fn,
+                pipeline_space=search_space,
+                working_directory=working_directory,
+                max_evaluations_total=cfg.experiment.max_evaluations_total,
+                searcher=cfg.experiment.searcher,
+                assisted_zero_cost_proxy=zc_proxy_evaluation,
+                assisted_init_population_dir=Path(working_directory)
+                / "assisted_init_population",
+                initial_design_size=cfg.experiment.n_init,
+            )
+        case _:
+            neps.run(
+                run_pipeline=run_pipeline_fn,
+                pipeline_space=search_space,
+                working_directory=working_directory,
+                max_evaluations_total=cfg.experiment.max_evaluations_total,
+                searcher=cfg.experiment.searcher,
+                initial_design_size=cfg.experiment.n_init,
+            )
+
+
+if __name__ == "__main__":
+    main()

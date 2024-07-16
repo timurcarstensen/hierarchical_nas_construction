@@ -1,13 +1,14 @@
-from __future__ import annotations
-
 import os
 import time
 from copy import deepcopy
+from pathlib import Path
+from typing import Any, Dict, NamedTuple, Optional
 
 import torch
+from neps.search_spaces.graph_grammar.graph import Graph
 from neps.search_spaces.search_space import SearchSpace
-from path import Path
 from torch import nn
+from torch.utils.data import DataLoader
 from torchvision import datasets as dset
 from torchvision import transforms
 
@@ -39,8 +40,49 @@ Dataset2Class = {
 
 
 def get_dataset(
-    name: str, root: str, cutout: int = -1, use_trivial_augment: bool = False
+    name: str,
+    root: str,
+    cutout: Optional[int] = -1,
+    use_trivial_augment: Optional[bool] = False,
 ):
+    """
+    This function loads and preprocesses various image datasets, applying
+    appropriate data augmentation and normalization techniques. It supports
+    datasets such as CIFAR-10, CIFAR-100, ImageNet, and custom ImageNet16 variants.
+
+    Args:
+        name: The name of the dataset to load. Supported options include
+            'cifar10', 'cifar100', 'imagenet-1k', 'ImageNet16', 'ImageNet16-120',
+            'ImageNet16-150', and 'ImageNet16-200'.
+        root: The root directory where the dataset is stored or will be
+            downloaded to.
+        cutout: The length of the cutout to apply during data augmentation.
+            If <= 0, no cutout is applied. Defaults to -1.
+        use_trivial_augment: If True, uses TrivialAugment for data augmentation.
+            Note: This option is not yet implemented and will raise a
+            NotImplementedError if set to True. Defaults to False.
+
+    Returns:
+        A tuple containing four elements:
+            - train_data: The training dataset with applied transformations.
+            - test_data: The test/validation dataset with applied transformations.
+            - xshape: The shape of a single data sample (C, H, W).
+            - class_num: The number of classes in the dataset.
+
+    Raises:
+        TypeError: If an unknown dataset name is provided.
+        NotImplementedError: If use_trivial_augment is set to True.
+
+    Note:
+        - The function applies different normalization parameters and
+          augmentation techniques based on the dataset.
+        - For CIFAR and ImageNet16 datasets, it applies random horizontal flip,
+          random crop, and optional cutout as augmentation techniques.
+        - The function asserts the correct number of samples for each dataset
+          to ensure data integrity.
+    """
+
+    # normalizing the data
     if name == "cifar10":
         mean = [x / 255 for x in [125.3, 123.0, 113.9]]
         std = [x / 255 for x in [63.0, 62.1, 66.7]]
@@ -55,10 +97,12 @@ def get_dataset(
     else:
         raise TypeError(f"Unknow dataset : {name}")
 
-    # Data Argumentation
+    # augmentation
     if name == "cifar10" or name == "cifar100":
         if use_trivial_augment:
-            raise NotImplementedError("Trivial augment impl. has to be added here!")
+            raise NotImplementedError(
+                "Trivial augment impl. has to be added here!"
+            )
         else:
             lists = [
                 transforms.RandomHorizontalFlip(),
@@ -75,7 +119,9 @@ def get_dataset(
         xshape = (1, 3, 32, 32)
     elif name.startswith("ImageNet16"):
         if use_trivial_augment:
-            raise NotImplementedError("Trivial augment impl. has to be added here!")
+            raise NotImplementedError(
+                "Trivial augment impl. has to be added here!"
+            )
         else:
             lists = [
                 transforms.RandomHorizontalFlip(),
@@ -91,6 +137,7 @@ def get_dataset(
         )
         xshape = (1, 3, 16, 16)
 
+    # load datasets using torchvision
     if name == "cifar10":
         train_data = dset.CIFAR10(
             root, train=True, transform=train_transform, download=True
@@ -108,8 +155,12 @@ def get_dataset(
         )
         assert len(train_data) == 50000 and len(test_data) == 10000
     elif name.startswith("imagenet-1k"):
-        train_data = dset.ImageFolder(os.path.join(root, "train"), train_transform)
-        test_data = dset.ImageFolder(os.path.join(root, "val"), test_transform)
+        train_data = dset.ImageFolder(
+            os.path.join(root, "train"), train_transform
+        )
+        test_data = dset.ImageFolder(
+            os.path.join(root, "val"), test_transform
+        )
         assert (
             len(train_data) == 1281167 and len(test_data) == 50000
         ), "invalid number of images : {:} & {:} vs {:} & {:}".format(
@@ -148,6 +199,12 @@ def get_dataloaders(
     use_trivial_augment: bool = False,
     eval_mode: bool = False,
 ):
+    """
+    Prepare and return data loaders for the specified dataset (CIFAR-10, CIFAR-100, or
+    ImageNet16). Sets up training and validation/testing loaders based on given parameters
+     and configurations.
+    """
+
     train_data, valid_data, xshape, class_num = get_dataset(
         name=dataset,
         root=root,
@@ -160,7 +217,9 @@ def get_dataloaders(
             config_path = "custom_nb201/configs/LESS.config"
         else:
             config_path = "custom_nb201/configs/CIFAR.config"
-        split_info = load_config(dir_path / "custom_nb201/configs/cifar-split.txt", None)
+        split_info = load_config(
+            dir_path / "custom_nb201/configs/cifar-split.txt", None
+        )
     elif dataset.startswith("ImageNet16"):
         if use_less:
             config_path = "custom_nb201/configs/LESS.config"
@@ -173,14 +232,19 @@ def get_dataloaders(
     else:
         raise ValueError(f"invalid dataset : {dataset}")
 
+    # load config, this returns a NamedTuple
     config = load_config(
-        dir_path / config_path,
-        {"class_num": class_num, "xshape": xshape, "epochs": epochs},
+        path=dir_path / config_path,
+        extra={
+            "class_num": class_num,
+            "xshape": xshape,
+            "epochs": epochs,
+        },
     )
     # check whether use splited validation set
     if dataset == "cifar10" and not eval_mode:
-        ValLoaders = {
-            "ori-test": torch.utils.data.DataLoader(
+        val_loaders = {
+            "ori-test": DataLoader(
                 valid_data,
                 batch_size=config.batch_size // gradient_accumulations,
                 shuffle=False,
@@ -197,31 +261,35 @@ def get_dataloaders(
         train_data_v2.transform = valid_data.transform
         valid_data = train_data_v2
         # data loader
-        train_loader = torch.utils.data.DataLoader(
+        train_loader = DataLoader(
             train_data,
             batch_size=config.batch_size // gradient_accumulations,
-            sampler=torch.utils.data.sampler.SubsetRandomSampler(split_info.train),
+            sampler=torch.utils.data.sampler.SubsetRandomSampler(
+                split_info.train
+            ),
             num_workers=workers,
             pin_memory=True,
         )
-        valid_loader = torch.utils.data.DataLoader(
+        valid_loader = DataLoader(
             valid_data,
             batch_size=config.batch_size // gradient_accumulations,
-            sampler=torch.utils.data.sampler.SubsetRandomSampler(split_info.valid),
+            sampler=torch.utils.data.sampler.SubsetRandomSampler(
+                split_info.valid
+            ),
             num_workers=workers,
             pin_memory=True,
         )
-        ValLoaders["x-valid"] = valid_loader
+        val_loaders["x-valid"] = valid_loader
     else:
         # data loader
-        train_loader = torch.utils.data.DataLoader(
+        train_loader = DataLoader(
             train_data,
             batch_size=config.batch_size // gradient_accumulations,
             shuffle=True,
             num_workers=workers,
             pin_memory=True,
         )
-        valid_loader = torch.utils.data.DataLoader(
+        valid_loader = DataLoader(
             valid_data,
             batch_size=config.batch_size // gradient_accumulations,
             shuffle=False,
@@ -229,25 +297,28 @@ def get_dataloaders(
             pin_memory=True,
         )
         if dataset == "cifar10":
-            ValLoaders = {"ori-test": valid_loader}
+            val_loaders = {"ori-test": valid_loader}
         elif dataset == "cifar100":
             cifar100_splits = load_config(
-                dir_path / "custom_nb201/configs/cifar100-test-split.txt", None
+                dir_path / "custom_nb201/configs/cifar100-test-split.txt",
+                None,
             )
-            ValLoaders = {
+            val_loaders = {
                 "ori-test": valid_loader,
-                "x-valid": torch.utils.data.DataLoader(
+                "x-valid": DataLoader(
                     valid_data,
-                    batch_size=config.batch_size // gradient_accumulations,
+                    batch_size=config.batch_size
+                    // gradient_accumulations,
                     sampler=torch.utils.data.sampler.SubsetRandomSampler(
                         cifar100_splits.xvalid
                     ),
                     num_workers=workers,
                     pin_memory=True,
                 ),
-                "x-test": torch.utils.data.DataLoader(
+                "x-test": DataLoader(
                     valid_data,
-                    batch_size=config.batch_size // gradient_accumulations,
+                    batch_size=config.batch_size
+                    // gradient_accumulations,
                     sampler=torch.utils.data.sampler.SubsetRandomSampler(
                         cifar100_splits.xtest
                     ),
@@ -257,22 +328,26 @@ def get_dataloaders(
             }
         elif dataset == "ImageNet16-120":
             imagenet16_splits = load_config(
-                dir_path / "custom_nb201/configs/imagenet-16-120-test-split.txt", None
+                dir_path
+                / "custom_nb201/configs/imagenet-16-120-test-split.txt",
+                None,
             )
-            ValLoaders = {
+            val_loaders = {
                 "ori-test": valid_loader,
-                "x-valid": torch.utils.data.DataLoader(
+                "x-valid": DataLoader(
                     valid_data,
-                    batch_size=config.batch_size // gradient_accumulations,
+                    batch_size=config.batch_size
+                    // gradient_accumulations,
                     sampler=torch.utils.data.sampler.SubsetRandomSampler(
                         imagenet16_splits.xvalid
                     ),
                     num_workers=workers,
                     pin_memory=True,
                 ),
-                "x-test": torch.utils.data.DataLoader(
+                "x-test": DataLoader(
                     valid_data,
-                    batch_size=config.batch_size // gradient_accumulations,
+                    batch_size=config.batch_size
+                    // gradient_accumulations,
                     sampler=torch.utils.data.sampler.SubsetRandomSampler(
                         imagenet16_splits.xtest
                     ),
@@ -283,7 +358,7 @@ def get_dataloaders(
         else:
             raise ValueError(f"invalid dataset : {dataset}")
 
-    return config, train_loader, ValLoaders
+    return config, train_loader, val_loaders
 
 
 def procedure(
@@ -325,7 +400,9 @@ def procedure(
                 network.zero_grad()
         # record loss and accuracy
         if mode == "valid":
-            prec1, prec5 = obtain_accuracy(logits.data, targets.data, topk=(1, 5))
+            prec1, prec5 = obtain_accuracy(
+                logits.data, targets.data, topk=(1, 5)
+            )
             top1.update(prec1.item(), inputs.size(0))
             top5.update(prec5.item(), inputs.size(0))
         # count time
@@ -337,15 +414,18 @@ def procedure(
 
 def evaluate_for_seed(
     model: nn.Module,
-    config,
-    train_loader,
-    valid_loaders: dict,
-    gradient_accumulations,
+    config: NamedTuple,
+    train_loader: DataLoader,
+    valid_loaders: Dict[str, DataLoader],
+    gradient_accumulations: int,
     workers: int,
-    working_directory: str | None = None,
-    previous_working_directory: str | None = None,
-):
-    optimizer, scheduler, criterion = get_optim_scheduler(model.parameters(), config)
+    working_directory: Optional[str | Path] = None,
+    previous_working_directory: Optional[str] = None,
+) -> Dict[str, Any]:
+    # get optimizer, scheduler, criterion
+    optimizer, scheduler, criterion = get_optim_scheduler(
+        model.parameters(), config
+    )
     scaler = torch.cuda.amp.GradScaler()
     if workers > 1:
         model = torch.nn.DataParallel(model)
@@ -376,6 +456,7 @@ def evaluate_for_seed(
             mode="train",
         )
 
+    # evaluate
     with torch.no_grad():
         out_dict = {}
         for key, xloader in valid_loaders.items():
@@ -394,6 +475,7 @@ def evaluate_for_seed(
 
     if working_directory is not None:
         model.train()
+        # save checkpoint
         torch.save(
             {
                 "model_state_dict": model.state_dict(),
@@ -406,6 +488,7 @@ def evaluate_for_seed(
             _use_new_zipfile_serialization=False,
         )
 
+    # clean up
     del model
     del criterion
     del scheduler
@@ -450,14 +533,21 @@ class NB201Pipeline(Objective):
         else:
             raise NotImplementedError
 
-    def __call__(self, working_directory, previous_working_directory, architecture, **hp):
+    # noinspection PyMethodOverriding
+    def __call__(
+        self,
+        working_directory: str | Path,
+        previous_working_directory: str | Path,
+        architecture: Graph | nn.Module,
+        **hp,
+    ):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         gradient_accumulations = self.gradient_accumulations
         while gradient_accumulations < 16:
             try:
                 start = time.time()
-                config, train_loader, ValLoaders = get_dataloaders(
+                config, train_loader, val_loaders = get_dataloaders(
                     self.dataset,
                     self.data_path,
                     epochs=self.n_epochs,
@@ -468,7 +558,10 @@ class NB201Pipeline(Objective):
                     else False,
                     eval_mode=self.eval_mode,
                 )
+
+                # fix seed for reproducibility
                 prepare_seed(self.seed, self.workers)
+
                 if hasattr(architecture, "to_pytorch"):
                     model = architecture.to_pytorch()
                 else:
@@ -480,7 +573,7 @@ class NB201Pipeline(Objective):
                         model,
                         config,
                         train_loader,
-                        ValLoaders,
+                        val_loaders,
                         gradient_accumulations=gradient_accumulations,
                         workers=self.workers,
                         working_directory=working_directory,
@@ -491,7 +584,7 @@ class NB201Pipeline(Objective):
                         model,
                         config,
                         train_loader,
-                        ValLoaders,
+                        val_loaders,
                         gradient_accumulations=gradient_accumulations,
                         workers=self.workers,
                     )
@@ -525,7 +618,7 @@ class NB201Pipeline(Objective):
 
         del model
         del train_loader
-        del ValLoaders
+        del val_loaders
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
@@ -542,6 +635,7 @@ class NB201Pipeline(Objective):
             eval_mode=self.eval_mode,
         )
         return train_loader
+
 
 if __name__ == "__main__":
     import argparse
@@ -566,20 +660,28 @@ if __name__ == "__main__":
 
     # pylint: enable=ungrouped-imports
 
-    def convert_identifier_to_str(identifier: str, terminals_to_nb201: dict) -> str:
+    def convert_identifier_to_str(
+        identifier: str, terminals_to_nb201: dict
+    ) -> str:
         """
         Converts identifier to string representation.
         """
-        start_indices = [m.start() for m in re.finditer("(OPS*)", identifier)]
+        start_indices = [
+            m.start() for m in re.finditer("(OPS*)", identifier)
+        ]
         op_edge_list = []
         counter = 0
         for i, _ in enumerate(start_indices):
             start_idx = start_indices[i]
-            end_idx = start_indices[i + 1] if i < len(start_indices) - 1 else -1
+            end_idx = (
+                start_indices[i + 1] if i < len(start_indices) - 1 else -1
+            )
             substring = identifier[start_idx:end_idx]
             for k in terminals_to_nb201.keys():
                 if k in substring:
-                    op_edge_list.append(f"{terminals_to_nb201[k]}~{counter}")
+                    op_edge_list.append(
+                        f"{terminals_to_nb201[k]}~{counter}"
+                    )
                     break
             if i == 0 or i == 2:
                 counter = 0
@@ -617,13 +719,20 @@ if __name__ == "__main__":
     pipeline_space = SearchSpace(**pipeline_space)
     pipeline_space = pipeline_space.sample(user_priors=True)
     run_pipeline_fn = NB201Pipeline(
-        dataset=args.dataset, data_path=args.data_path, seed=args.seed, eval_mode=True
+        dataset=args.dataset,
+        data_path=args.data_path,
+        seed=args.seed,
+        eval_mode=True,
     )
-    res = run_pipeline_fn("", "", pipeline_space.hyperparameters["architecture"])
+    res = run_pipeline_fn(
+        "", "", pipeline_space.hyperparameters["architecture"]
+    )
 
     pipeline_space = dict(
         architecture=NB201Spaces(
-            space="fixed_1_none", dataset=args.dataset, adjust_params=False
+            space="fixed_1_none",
+            dataset=args.dataset,
+            adjust_params=False,
         ),
     )
     pipeline_space = SearchSpace(**pipeline_space)
@@ -632,7 +741,9 @@ if __name__ == "__main__":
     # cell_shared = original NB201 space
     pipeline_space = dict(
         architecture=NB201Spaces(
-            space="variable_multi_multi", dataset=args.dataset, adjust_params=False
+            space="variable_multi_multi",
+            dataset=args.dataset,
+            adjust_params=False,
         ),
     )
     pipeline_space = SearchSpace(**pipeline_space)
@@ -642,13 +753,20 @@ if __name__ == "__main__":
     }
     sampled_pipeline_space.load_from(identifier)
     run_pipeline_fn = NB201Pipeline(
-        dataset=args.dataset, data_path=args.data_path, seed=args.seed, eval_mode=True
+        dataset=args.dataset,
+        data_path=args.data_path,
+        seed=args.seed,
+        eval_mode=True,
     )
-    res = run_pipeline_fn("", "", sampled_pipeline_space.hyperparameters["architecture"])
+    res = run_pipeline_fn(
+        "", "", sampled_pipeline_space.hyperparameters["architecture"]
+    )
 
     if args.write_graph:
         writer = SummaryWriter("results/hierarchical_nb201")
-        net = sampled_pipeline_space.hyperparameters["architecture"].to_pytorch()
+        net = sampled_pipeline_space.hyperparameters[
+            "architecture"
+        ].to_pytorch()
         images = torch.randn((8, 3, 32, 32))
         _ = sampled_pipeline_space.hyperparameters["architecture"](images)
         _ = net(images)
@@ -669,7 +787,9 @@ if __name__ == "__main__":
         os.path.dirname(args.data_path),
         negative=False,
         seed=args.seed,
-        task=f"{args.dataset}-valid" if args.dataset == "cifar10" else args.dataset,
+        task=f"{args.dataset}-valid"
+        if args.dataset == "cifar10"
+        else args.dataset,
         log_scale=True,
         identifier_to_str_mapping=identifier_to_str_mapping,
     )
@@ -677,7 +797,9 @@ if __name__ == "__main__":
 
     if args.best_archs:
         generator = (
-            sampled_pipeline_space.hyperparameters["architecture"].grammars[0].generate()
+            sampled_pipeline_space.hyperparameters["architecture"]
+            .grammars[0]
+            .generate()
         )
         archs = list(generator)
         identifier = sampled_pipeline_space.serialize()["architecture"]
@@ -690,20 +812,28 @@ if __name__ == "__main__":
                 empty_idx = new_identifier.find(" ", starting_idx)
                 closing_idx = new_identifier.find(")", starting_idx)
                 new_identifier = (
-                    new_identifier[: empty_idx + 1] + ops + new_identifier[closing_idx:]
+                    new_identifier[: empty_idx + 1]
+                    + ops
+                    + new_identifier[closing_idx:]
                 )
                 start_idx = new_identifier.find(")", starting_idx)
 
             try:
-                sampled_pipeline_space.load_from({"architecture": new_identifier})
+                sampled_pipeline_space.load_from(
+                    {"architecture": new_identifier}
+                )
                 res_api = run_pipeline_fn(
                     sampled_pipeline_space.hyperparameters["architecture"]
                 )
-                vals[new_identifier] = 100 * (1 - res_api["info_dict"]["val_score"])
+                vals[new_identifier] = 100 * (
+                    1 - res_api["info_dict"]["val_score"]
+                )
             except Exception:
                 pass
 
-        results = sorted(vals.items(), key=lambda pair: pair[1], reverse=True)[:10]
+        results = sorted(
+            vals.items(), key=lambda pair: pair[1], reverse=True
+        )[:10]
         print(args.seed)
         print(results)
     else:
@@ -724,7 +854,10 @@ if __name__ == "__main__":
             else:
                 raise NotImplementedError
             tiny_net = TinyNetwork(
-                arch_config["channel"], arch_config["num_cells"], genotype, n_classes
+                arch_config["channel"],
+                arch_config["num_cells"],
+                genotype,
+                n_classes,
             )
 
         sampled_pipeline_space.load_from({"architecture": identifier})
@@ -734,14 +867,21 @@ if __name__ == "__main__":
                 "architecture"
             ].to_pytorch()
 
-            tiny_net_total_params = sum(p.numel() for p in tiny_net.parameters())
-            our_model_total_params = sum(p.numel() for p in our_model.parameters())
+            tiny_net_total_params = sum(
+                p.numel() for p in tiny_net.parameters()
+            )
+            our_model_total_params = sum(
+                p.numel() for p in our_model.parameters()
+            )
             print(tiny_net_total_params, our_model_total_params)
 
-            new_state_dict = {k: None for k in our_model.state_dict().keys()}
+            new_state_dict = {
+                k: None for k in our_model.state_dict().keys()
+            }
             our_model_values = our_model.state_dict().values()
             for (k_tiny, v_tiny), (k_our, v_our) in zip(
-                tiny_net.state_dict().items(), our_model.state_dict().items()
+                tiny_net.state_dict().items(),
+                our_model.state_dict().items(),
             ):
                 new_state_dict[k_our] = v_tiny
             our_model.load_state_dict(new_state_dict)
@@ -753,20 +893,27 @@ if __name__ == "__main__":
                 f"Model is functionally equivalent: {torch.all(output_tiny == output_our)}"
             )
 
-        res_api = run_pipeline_fn(sampled_pipeline_space.hyperparameters["architecture"])
+        res_api = run_pipeline_fn(
+            sampled_pipeline_space.hyperparameters["architecture"]
+        )
         res_api_val = 100 * (1 - res_api["info_dict"]["val_score"])
         res_api_test = 100 * (1 - res_api["info_dict"]["test_score"])
         del run_pipeline_fn
         del api
 
         run_pipeline_fn = NB201Pipeline(
-            dataset=args.dataset, data_path=args.data_path, seed=args.seed, eval_mode=True
+            dataset=args.dataset,
+            data_path=args.data_path,
+            seed=args.seed,
+            eval_mode=True,
         )
         if args.nb201_model_backend:
             res = run_pipeline_fn("", "", tiny_net)
         else:
             res = run_pipeline_fn(
-                "", "", sampled_pipeline_space.hyperparameters["architecture"]
+                "",
+                "",
+                sampled_pipeline_space.hyperparameters["architecture"],
             )
         res_val = res["info_dict"]["valid_acc1es"][-1]
         res_test = res["info_dict"]["test_acc1es"][-1]

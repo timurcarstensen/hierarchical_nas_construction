@@ -3,7 +3,9 @@ import os
 from copy import deepcopy
 
 from neps.search_spaces.graph_grammar.api import FunctionParameter
-from neps.search_spaces.graph_grammar.cfg_variants.constrained_cfg import Constraint
+from neps.search_spaces.graph_grammar.cfg_variants.constrained_cfg import (
+    Constraint,
+)
 from path import Path
 
 import benchmarks.search_spaces.darts_cnn.primitives as darts_primitives
@@ -153,7 +155,7 @@ def darts_constraint():
                                 ]
                                 new_production._rhs = tuple(  # pylint: disable=protected-access
                                     r
-                                    if not i in indices_of_in_edges
+                                    if i not in indices_of_in_edges
                                     else in_edges[indices_of_in_edges.index(i)]
                                     for i, r in enumerate(new_production.rhs())
                                 )
@@ -186,18 +188,20 @@ def darts_constraint():
 if __name__ == "__main__":
     import math
 
-    # pylint: disable=ungrouped-imports
-    from neps.search_spaces.search_space import SearchSpace
-
     from hierarchical_nas_benchmarks.search_spaces.darts_cnn.genotypes import (
         DrNAS_cifar10,
         Genotype,
     )
-    from hierarchical_nas_benchmarks.search_spaces.darts_cnn.model import NetworkCIFAR
+    from hierarchical_nas_benchmarks.search_spaces.darts_cnn.model import (
+        NetworkCIFAR,
+    )
     from hierarchical_nas_benchmarks.search_spaces.darts_cnn.visualize import (
         plot,
         plot_from_graph,
     )
+
+    # pylint: disable=ungrouped-imports
+    from neps.search_spaces.search_space import SearchSpace
 
     # pylint: enable=ungrouped-imports
 

@@ -9,34 +9,42 @@ from functools import partial
 import neps
 import numpy as np
 import torch
-from benchmarks.objectives.addNIST import AddNISTObjective
-from benchmarks.objectives.cifar_activation import (
-    CIFAR10ActivationObjective,
-)
-from benchmarks.objectives.cifarTile import CifarTileObjective
-from benchmarks.objectives.hierarchical_nb201 import NB201Pipeline
-from benchmarks.search_spaces.activation_function_search.graph import (
-    ActivationSpace,
-)
-from benchmarks.search_spaces.hierarchical_nb201.graph import (
-    NB201_HIERARCHIES_CONSIDERED,
-    NB201Spaces,
-)
 from neps.optimizers import SearcherMapping
-from neps.optimizers.bayesian_optimization.acquisition_functions import AcquisitionMapping
+from neps.optimizers.bayesian_optimization.acquisition_functions import (
+    AcquisitionMapping,
+)
 from neps.optimizers.bayesian_optimization.acquisition_samplers import (
     AcquisitionSamplerMapping,
     EvolutionSampler,
 )
-from neps.optimizers.bayesian_optimization.kernels import GraphKernelMapping
+from neps.optimizers.bayesian_optimization.kernels import (
+    GraphKernelMapping,
+)
 from neps.optimizers.bayesian_optimization.models.gp_hierarchy import (
     ComprehensiveGPHierarchy,
 )
 from neps.search_spaces.search_space import SearchSpace
 from path import Path
-from experiments.zero_cost_rank_correlation import ZeroCost, evaluate
-from benchmarks.search_spaces.darts_cnn.graph import DARTSSpace
+
+# importing objectives
+from benchmarks.objectives.addNIST import AddNISTObjective
+from benchmarks.objectives.cifar_activation import (
+    CIFAR10ActivationObjective,
+)
+from benchmarks.objectives.cifarTile import CifarTileObjective
 from benchmarks.objectives.darts_cnn import DARTSCnn
+from benchmarks.objectives.hierarchical_nb201 import NB201Pipeline
+
+# importing search spaces
+from benchmarks.search_spaces.activation_function_search.graph import (
+    ActivationSpace,
+)
+from benchmarks.search_spaces.darts_cnn.graph import DARTSSpace
+from benchmarks.search_spaces.hierarchical_nb201.graph import (
+    NB201_HIERARCHIES_CONSIDERED,
+    NB201Spaces,
+)
+from experiments.zero_cost_rank_correlation import ZeroCost, evaluate
 
 SearchSpaceMapping = {
     "nb201": NB201Spaces,
@@ -47,6 +55,7 @@ SearchSpaceMapping = {
 hierarchies_considered_in_search_space = {**NB201_HIERARCHIES_CONSIDERED}
 hierarchies_considered_in_search_space["act_cifar10"] = [0, 1, 2]
 hierarchies_considered_in_search_space["darts"] = [0]
+
 
 def run_debug_pipeline(architecture):
     start = time.time()
@@ -62,14 +71,19 @@ def run_debug_pipeline(architecture):
         },
     }
 
+
 ObjectiveMapping = {
     "nb201_addNIST": AddNISTObjective,
     "nb201_cifarTile": CifarTileObjective,
     "nb201_cifar10": partial(NB201Pipeline, dataset="cifar10"),
     "nb201_cifar100": partial(NB201Pipeline, dataset="cifar100"),
-    "nb201_ImageNet16-120": partial(NB201Pipeline, dataset="ImageNet16-120"),
+    "nb201_ImageNet16-120": partial(
+        NB201Pipeline, dataset="ImageNet16-120"
+    ),
     "act_cifar10": partial(CIFAR10ActivationObjective, dataset="cifar10"),
-    "act_cifar100": partial(CIFAR10ActivationObjective, dataset="cifar100"),
+    "act_cifar100": partial(
+        CIFAR10ActivationObjective, dataset="cifar100"
+    ),
     "darts": DARTSCnn,
     "debug": run_debug_pipeline,
 }
@@ -90,7 +104,10 @@ parser.add_argument(
     "--n_init", type=int, default=10, help="number of initialising points"
 )
 parser.add_argument(
-    "--max_evaluations_total", type=int, default=150, help="number of evaluations"
+    "--max_evaluations_total",
+    type=int,
+    default=150,
+    help="number of evaluations",
 )
 parser.add_argument(
     "-ps",
@@ -149,7 +166,9 @@ parser.add_argument(
     help="The maximum amount of GP jitter noise variance",
 )
 parser.add_argument(
-    "--log", action="store_true", help="Whether to report the results in log scale"
+    "--log",
+    action="store_true",
+    help="Whether to report the results in log scale",
 )
 parser.add_argument(
     "--data_path",
@@ -181,12 +200,16 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-args.working_directory = os.path.join(args.working_directory, args.searcher)
+args.working_directory = os.path.join(
+    args.working_directory, args.searcher
+)
 if "bayesian_optimization" in args.searcher:
     args.working_directory += f"_{args.surrogate_model}"
     args.working_directory += f"_{args.pool_strategy}"
     args.working_directory += f"_pool{args.pool_size}"
-args.working_directory = os.path.join(args.working_directory, f"{args.seed}")
+args.working_directory = os.path.join(
+    args.working_directory, f"{args.seed}"
+)
 
 working_dir = Path(args.working_directory)
 working_dir.makedirs_p()
@@ -194,26 +217,43 @@ with open(working_dir / "args.json", "w") as f:
     json.dump(args.__dict__, f, indent=4)
 
 if "nb201_" in args.objective or "act_" in args.objective:
+    # Gets the run pipeline and calls it with the given arguments
     run_pipeline_fn = ObjectiveMapping[args.objective](
         data_path=args.data_path, seed=args.seed, log_scale=args.log
     )
+
+    # Gets the dataset from the objective name
     idx = args.search_space.find("_")
     dataset = args.objective[args.objective.find("_") + 1 :]
+    # TODO: this spits out nb20 for nb201
     search_space_key = args.search_space[:idx]
+
+    # adjust params an only be max or None -> could also be a boolean flag
     if args.adjust_params is not None and "nb201_" in args.objective:
         assert args.adjust_params in ["max"]
+
+        # Creates a pipeline space with the neps SearchSpace class
         pipeline_space = dict(
             architecture=SearchSpaceMapping[search_space_key](
-            space="fixed_1_none", dataset=dataset, adjust_params=None
-        ),
+                space="fixed_1_none", dataset=dataset, adjust_params=None
+            ),
         )
         pipeline_space = SearchSpace(**pipeline_space)
         if args.adjust_params == "max":
-            identifier = "(CELL Cell (OPS conv3x3) (OPS conv3x3) (OPS conv3x3) (OPS conv3x3) (OPS conv3x3) (OPS conv3x3))"
+            identifier = (
+                "(CELL Cell (OPS conv3x3) (OPS conv3x3) (OPS conv3x3)"
+                " (OPS conv3x3) (OPS conv3x3) (OPS conv3x3))"
+            )
         else:
             raise NotImplementedError
+
+        # Loads the pipeline space from the identifier
         pipeline_space.load_from({"architecture": identifier})
-        model = pipeline_space.hyperparameters["architecture"].to_pytorch()
+        model = pipeline_space.hyperparameters[
+            "architecture"
+        ].to_pytorch()
+
+        # check whether the model takes the correct input shape
         if dataset in ["cifar10", "cifar100"]:
             _ = model(torch.rand(1, 3, 32, 32))
         elif dataset == "ImageNet16-120":
@@ -224,30 +264,31 @@ if "nb201_" in args.objective or "act_" in args.objective:
             _ = model(torch.rand(1, 3, 64, 64))
         else:
             raise NotImplementedError
+
         args.adjust_params = sum(p.numel() for p in model.parameters())
-    if (
-        args.surrogate_model == "gpwl_hierarchical"
-        or args.surrogate_model == "gpwl"
-        or "gp_nasbot" == args.surrogate_model
-    ):
-        if "nb201_" in args.objective:
-            search_space = SearchSpaceMapping[search_space_key](
-                space=args.search_space[idx + 1 :], dataset=dataset, adjust_params=args.adjust_params
-            )
-        elif "act_" in args.objective:
-            search_space = SearchSpaceMapping[search_space_key](dataset=dataset)
-    else:
-        if "nb201_" in args.objective:
-            search_space = SearchSpaceMapping[search_space_key](
-                space=args.search_space[idx + 1 :],
-                dataset=dataset,
-                return_graph_per_hierarchy=False,
-                adjust_params=args.adjust_params,
-            )
-        elif "act_" in args.objective:
-            search_space = SearchSpaceMapping[search_space_key](
-                dataset=dataset, return_graph_per_hierarchy=False
-            )
+
+    return_graph_per_hierarchy = (
+        True
+        if args.surrogate_model
+        in ("gpwl_hierarchical", "gpwl", "gp_nasbot")
+        else False
+    )
+    if "nb201_" in args.objective:
+        search_space = SearchSpaceMapping[search_space_key](
+            space=args.search_space[idx + 1 :],
+            dataset=dataset,
+            # adjust_params=args.adjust_params,
+            return_graph_per_hierarchy=return_graph_per_hierarchy,
+        )
+    elif "act_" in args.objective:
+        search_space = SearchSpaceMapping[search_space_key](
+            dataset=dataset,
+            return_graph_per_hierarchy=return_graph_per_hierarchy
+            if args.surrogate_model
+            in ("gpwl_hierarchical", "gpwl", "gp_nasbot")
+            else False,
+        )
+
 elif "darts" == args.objective:
     run_pipeline_fn = ObjectiveMapping[args.objective](
         data_path=args.data_path, seed=args.seed, log_scale=args.log
@@ -256,102 +297,114 @@ elif "darts" == args.objective:
         normal=SearchSpaceMapping["darts"](),
         reduce=SearchSpaceMapping["darts"](),
     )
-    args.pool_strategy = partial(EvolutionSampler, p_crossover=0.0, patience=10)
+    args.pool_strategy = partial(
+        EvolutionSampler, p_crossover=0.0, patience=10
+    )
+# run the debug pipeline
 elif "debug" == args.objective:
     run_pipeline_fn = ObjectiveMapping[args.objective]
     idx = args.search_space.find("_")
     dataset = args.objective[args.objective.find("_") + 1 :]
+
     search_space = SearchSpaceMapping[args.search_space[:idx]](
         space=args.search_space[idx + 1 :], dataset="cifar10"
     )
 else:
-    raise NotImplementedError(f"Objective {args.objective} not implemented")
+    raise NotImplementedError(
+        f"Objective {args.objective} not implemented"
+    )
 
-if args.surrogate_model == "gpwl_hierarchical":
-    hierarchy_considered = hierarchies_considered_in_search_space[args.search_space]
-    graph_kernels = ["wl"] * (len(hierarchy_considered) + 1)
-    wl_h = [2, 1] + [2] * len(hierarchy_considered)
-    graph_kernels = [
-        GraphKernelMapping[kernel](
-            h=wl_h[j],
-            oa=False,
-            se_kernel=None,
-        )
-        for j, kernel in enumerate(graph_kernels)
-    ]
-    surrogate_model = ComprehensiveGPHierarchy
-    surrogate_model_args = {
-        "graph_kernels": graph_kernels,
-        "hp_kernels": [],
-        "verbose": False,
-        "hierarchy_consider": hierarchy_considered,
-        "d_graph_features": 0,
-        "vectorial_features": None,
-    }
-elif args.surrogate_model == "gpwl":
-    hierarchy_considered = None if args.objective == "darts" else []
-    if args.objective == "darts":
-        graph_kernels = ["wl", "wl"]
-        wl_h = [2, 2]
-    else:
-        graph_kernels = ["wl"]
-        wl_h = [2]
-    graph_kernels = [
-        GraphKernelMapping[kernel](
-            h=wl_h[j],
-            oa=False,
-            se_kernel=None,
-        )
-        for j, kernel in enumerate(graph_kernels)
-    ]
-    surrogate_model = ComprehensiveGPHierarchy
-    surrogate_model_args = {
-        "graph_kernels": graph_kernels,
-        "hp_kernels": [],
-        "verbose": False,
-        "hierarchy_consider": hierarchy_considered,
-        "d_graph_features": 0,
-        "vectorial_features": None,
-    }
-elif "gp_nasbot" == args.surrogate_model:
-    hierarchy_considered = []
-    graph_kernels = ["nasbot"]
-    if "nb201_variable_multi_multi" == args.search_space:
-        include_op_list = [
-            "id",
-            "zero",
-            "avg_pool",
-            "conv3x3o",
-            "conv1x1o",
-            "dconv3x3o",
-            "batch",
-            "instance",
-            "layer",
-            "relu",
-            "hardswish",
-            "mish",
-            "resBlock",
+match args.surrogate_model:
+    case "gpwl_hierarchical":
+        hierarchy_considered = hierarchies_considered_in_search_space[
+            args.search_space
         ]
-        exclude_op_list = ["input", "output"]
-    else:
+        graph_kernels = ["wl"] * (len(hierarchy_considered) + 1)
+        wl_h = [2, 1] + [2] * len(hierarchy_considered)
+        graph_kernels = [
+            GraphKernelMapping[kernel](
+                h=wl_h[j],
+                oa=False,
+                se_kernel=None,
+            )
+            for j, kernel in enumerate(graph_kernels)
+        ]
+        surrogate_model = ComprehensiveGPHierarchy
+        surrogate_model_args = {
+            "graph_kernels": graph_kernels,
+            "hp_kernels": [],
+            "verbose": False,
+            "hierarchy_consider": hierarchy_considered,
+            "d_graph_features": 0,
+            "vectorial_features": None,
+        }
+    case "gpwl":
+        hierarchy_considered = None if args.objective == "darts" else []
+        if args.objective == "darts":
+            graph_kernels = ["wl", "wl"]
+            wl_h = [2, 2]
+        else:
+            graph_kernels = ["wl"]
+            wl_h = [2]
+        graph_kernels = [
+            GraphKernelMapping[kernel](
+                h=wl_h[j],
+                oa=False,
+                se_kernel=None,
+            )
+            for j, kernel in enumerate(graph_kernels)
+        ]
+        surrogate_model = ComprehensiveGPHierarchy
+        surrogate_model_args = {
+            "graph_kernels": graph_kernels,
+            "hp_kernels": [],
+            "verbose": False,
+            "hierarchy_consider": hierarchy_considered,
+            "d_graph_features": 0,
+            "vectorial_features": None,
+        }
+
+    case "gp_nasbot":
+        hierarchy_considered = []
+        graph_kernels = ["nasbot"]
+        if "nb201_variable_multi_multi" == args.search_space:
+            include_op_list = [
+                "id",
+                "zero",
+                "avg_pool",
+                "conv3x3o",
+                "conv1x1o",
+                "dconv3x3o",
+                "batch",
+                "instance",
+                "layer",
+                "relu",
+                "hardswish",
+                "mish",
+                "resBlock",
+            ]
+            exclude_op_list = ["input", "output"]
+        else:
+            raise NotImplementedError
+        graph_kernels = [
+            GraphKernelMapping[kernel](
+                include_op_list=include_op_list,
+                exclude_op_list=exclude_op_list,
+            )
+            for kernel in graph_kernels
+        ]
+        surrogate_model = ComprehensiveGPHierarchy
+        surrogate_model_args = {
+            "graph_kernels": graph_kernels,
+            "hp_kernels": [],
+            "verbose": False,
+            "hierarchy_consider": hierarchy_considered,
+            "d_graph_features": 0,
+            "vectorial_features": None,
+        }
+
+    case _:
         raise NotImplementedError
-    graph_kernels = [
-        GraphKernelMapping[kernel](
-            include_op_list=include_op_list, exclude_op_list=exclude_op_list
-        )
-        for kernel in graph_kernels
-    ]
-    surrogate_model = ComprehensiveGPHierarchy
-    surrogate_model_args = {
-        "graph_kernels": graph_kernels,
-        "hp_kernels": [],
-        "verbose": False,
-        "hierarchy_consider": hierarchy_considered,
-        "d_graph_features": 0,
-        "vectorial_features": None,
-    }
-else:
-    raise NotImplementedError
 
 if args.seed is not None:
     if hasattr(run_pipeline_fn, "set_seed"):
@@ -367,46 +420,59 @@ if args.seed is not None:
 
 logging.basicConfig(level=logging.INFO)
 
-if not isinstance(search_space, dict) and not isinstance(search_space, SearchSpace):
+if not isinstance(search_space, dict) and not isinstance(
+    search_space, SearchSpace
+):
     search_space = {"architecture": search_space}
 
-if args.searcher == "bayesian_optimization":
-    patience = 10 if "fixed_1_none" in args.search_space else 100
-    _ = neps.run(
-        run_pipeline=run_pipeline_fn,
-        pipeline_space=search_space,
-        working_directory=args.working_directory,
-        max_evaluations_total=args.max_evaluations_total,
-        searcher=args.searcher,
-        acquisition=args.acquisition,
-        acquisition_sampler=args.pool_strategy,
-        surrogate_model=surrogate_model,
-        surrogate_model_args=surrogate_model_args,
-        initial_design_size=args.n_init,
-        patience=patience,
-    )
-elif args.searcher == "assisted_regularized_evolution":
-    zc_proxy = ZeroCost(
-        method_type="nwot", n_classes=run_pipeline_fn.num_classes, loss_fn=None
-    )
-    extract_model = lambda x: x["architecture"].to_pytorch()
-    zc_proxy_evaluation = partial(evaluate, zc_proxy=zc_proxy, loader=run_pipeline_fn.get_train_loader(), extract_model=extract_model)
-    _ = neps.run(
-        run_pipeline=run_pipeline_fn,
-        pipeline_space=search_space,
-        working_directory=args.working_directory,
-        max_evaluations_total=args.max_evaluations_total,
-        searcher=args.searcher,
-        assisted_zero_cost_proxy=zc_proxy_evaluation,
-        assisted_init_population_dir=Path(args.working_directory) / "assisted_init_population",
-        initial_design_size=args.n_init,
-    )
-else:
-    _ = neps.run(
-        run_pipeline=run_pipeline_fn,
-        pipeline_space=search_space,
-        working_directory=args.working_directory,
-        max_evaluations_total=args.max_evaluations_total,
-        searcher=args.searcher,
-        initial_design_size=args.n_init,
-    )
+match args.searcher:
+    case "bayesian_optimization":
+        patience = 10 if "fixed_1_none" in args.search_space else 100
+        neps.run(
+            run_pipeline=run_pipeline_fn,
+            pipeline_space=search_space,
+            working_directory=args.working_directory,
+            max_evaluations_total=args.max_evaluations_total,
+            searcher=args.searcher,
+            acquisition=args.acquisition,
+            acquisition_sampler=args.pool_strategy,
+            surrogate_model=surrogate_model,
+            surrogate_model_args=surrogate_model_args,
+            initial_design_size=args.n_init,
+            patience=patience,
+        )
+
+    # when using AREA as described in https://arxiv.org/pdf/2006.04647
+    case "assisted_regularized_evolution":
+        zc_proxy = ZeroCost(
+            method_type="nwot",
+            n_classes=run_pipeline_fn.num_classes,
+            loss_fn=None,
+        )
+        extract_model = lambda x: x["architecture"].to_pytorch()
+        zc_proxy_evaluation = partial(
+            evaluate,
+            zc_proxy=zc_proxy,
+            loader=run_pipeline_fn.get_train_loader(),
+            extract_model=extract_model,
+        )
+        neps.run(
+            run_pipeline=run_pipeline_fn,
+            pipeline_space=search_space,
+            working_directory=args.working_directory,
+            max_evaluations_total=args.max_evaluations_total,
+            searcher=args.searcher,
+            assisted_zero_cost_proxy=zc_proxy_evaluation,
+            assisted_init_population_dir=Path(args.working_directory)
+            / "assisted_init_population",
+            initial_design_size=args.n_init,
+        )
+    case _:
+        neps.run(
+            run_pipeline=run_pipeline_fn,
+            pipeline_space=search_space,
+            working_directory=args.working_directory,
+            max_evaluations_total=args.max_evaluations_total,
+            searcher=args.searcher,
+            initial_design_size=args.n_init,
+        )

@@ -10,6 +10,16 @@ from pathlib import Path
 import numpy as np
 import torch
 import yaml
+from neps.optimizers.bayesian_optimization.kernels import (
+    GraphKernelMapping,
+)
+from neps.optimizers.bayesian_optimization.models.gp_hierarchy import (
+    ComprehensiveGPHierarchy,
+)
+from neps.search_spaces.graph_grammar.primitives import AbstractPrimitive
+from neps.search_spaces.search_space import SearchSpace
+from scipy import stats
+
 from benchmarks.objectives.addNIST import AddNISTObjective
 from benchmarks.objectives.cifarTile import CifarTileObjective
 from benchmarks.objectives.hierarchical_nb201 import NB201Pipeline
@@ -17,13 +27,6 @@ from benchmarks.search_spaces.hierarchical_nb201.graph import (
     NB201_HIERARCHIES_CONSIDERED,
     NB201Spaces,
 )
-from neps.optimizers.bayesian_optimization.kernels import GraphKernelMapping
-from neps.optimizers.bayesian_optimization.models.gp_hierarchy import (
-    ComprehensiveGPHierarchy,
-)
-from neps.search_spaces.search_space import SearchSpace
-from neps.search_spaces.graph_grammar.primitives import AbstractPrimitive
-from scipy import stats
 
 ConfigResult = collections.namedtuple("ConfigResult", ["config", "result"])
 

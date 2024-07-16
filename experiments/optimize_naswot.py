@@ -12,17 +12,17 @@ from statistics import mean
 
 import numpy as np
 import torch
+from neps.optimizers.random_search.optimizer import RandomSearch
+from neps.search_spaces.search_space import SearchSpace
+from path import Path
+from tqdm import trange
+
 from benchmarks.evaluation.utils import get_train_val_test_loaders
 from benchmarks.objectives.hierarchical_nb201 import get_dataloaders
 from benchmarks.search_spaces.hierarchical_nb201.graph import (
     NB201_HIERARCHIES_CONSIDERED,
     NB201Spaces,
 )
-from neps.optimizers.random_search.optimizer import RandomSearch
-from neps.search_spaces.search_space import SearchSpace
-from path import Path
-from tqdm import trange
-
 from experiments.zero_cost_rank_correlation import ZeroCost, evaluate
 
 SearchSpaceMapping = {

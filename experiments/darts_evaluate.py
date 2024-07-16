@@ -6,13 +6,14 @@ from typing import Union
 
 import numpy as np
 import torch
+from nas_201_api import NASBench201API
+from neps.search_spaces.search_space import SearchSpace
+from path import Path
+
 from benchmarks.objectives.addNIST import AddNISTObjective
 from benchmarks.objectives.cifarTile import CifarTileObjective
 from benchmarks.objectives.hierarchical_nb201 import NB201Pipeline
 from benchmarks.search_spaces.hierarchical_nb201.graph import NB201Spaces
-from nas_201_api import NASBench201API
-from neps.search_spaces.search_space import SearchSpace
-from path import Path
 
 ObjectiveMapping = {
     "nb201_addNIST": AddNISTObjective,

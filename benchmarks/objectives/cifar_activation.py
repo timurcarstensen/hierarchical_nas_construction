@@ -1,18 +1,19 @@
-import torch
-from torch import nn
-from torch.utils.data.sampler import SubsetRandomSampler
 import time
-from torchvision import transforms, datasets
-from torch.cuda.amp import GradScaler
 from copy import deepcopy
 
-from benchmarks.evaluation.objective import Objective
+import torch
+from torch import nn
+from torch.cuda.amp import GradScaler
+from torch.utils.data.sampler import SubsetRandomSampler
+from torchvision import datasets, transforms
 
+from benchmarks.evaluation.objective import Objective
 from benchmarks.objectives.custom_nb201.evaluate_utils import (
     AverageMeter,
     obtain_accuracy,
     prepare_seed,
 )
+
 
 def get_dataloaders(dataset, data_path, workers, seed: int = 777, eval_mode: bool = False):
     if dataset == "cifar10":
@@ -257,12 +258,16 @@ def dummy_test(config, is_trainable=True, is_const: bool = False):
 
 if __name__ == "__main__":
     import argparse
-    import math
     import json
-    from path import Path
+    import math
+
     from neps.search_spaces.search_space import SearchSpace
-    from benchmarks.search_spaces.activation_function_search.graph import ActivationSpace
+    from path import Path
+
     import benchmarks.search_spaces.activation_function_search.cifar_models as cifar_models
+    from benchmarks.search_spaces.activation_function_search.graph import (
+        ActivationSpace,
+    )
 
     parser = argparse.ArgumentParser(description="Train")
     parser.add_argument(

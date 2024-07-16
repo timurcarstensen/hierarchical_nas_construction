@@ -1,6 +1,6 @@
 import torch
-
 from neps.search_spaces.graph_grammar.primitives import AbstractPrimitive
+
 
 class Stacking(AbstractPrimitive):
     def __init__(

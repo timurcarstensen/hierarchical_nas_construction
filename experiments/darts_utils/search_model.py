@@ -1,14 +1,19 @@
+import logging
+from copy import deepcopy
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from copy import deepcopy
-from experiments.darts_utils.cell_operations import ResNetBasicblock
-from experiments.darts_utils.search_cells import NAS201SearchCell_PartialChannel as SearchCell
-from experiments.darts_utils.genotypes import Structure
-from experiments.darts_utils.utils import process_step_matrix, prune
-import logging
 from torch.distributions.dirichlet import Dirichlet
 from torch.distributions.kl import kl_divergence
+
+from experiments.darts_utils.cell_operations import ResNetBasicblock
+from experiments.darts_utils.genotypes import Structure
+from experiments.darts_utils.search_cells import (
+  NAS201SearchCell_PartialChannel as SearchCell,
+)
+from experiments.darts_utils.utils import process_step_matrix, prune
+
 
 class TinyNetwork(nn.Module):
 

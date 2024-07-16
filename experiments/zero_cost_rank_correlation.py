@@ -16,6 +16,12 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import yaml
+from neps.search_spaces.graph_grammar.graph import Graph
+from neps.search_spaces.search_space import SearchSpace
+from scipy import stats
+from torch import nn
+from torch.utils.data import DataLoader
+
 from benchmarks.evaluation.utils import get_train_val_test_loaders
 from benchmarks.objectives.addNIST import AddNISTObjective
 from benchmarks.objectives.cifarTile import CifarTileObjective
@@ -27,12 +33,6 @@ from benchmarks.search_spaces.hierarchical_nb201.graph import (
     NB201_HIERARCHIES_CONSIDERED,
     NB201Spaces,
 )
-from neps.search_spaces.graph_grammar.graph import Graph
-from neps.search_spaces.search_space import SearchSpace
-from scipy import stats
-from torch import nn
-from torch.utils.data import DataLoader
-
 from experiments.zero_cost_proxies_utils import calc_measure
 from experiments.zero_cost_proxies_utils.model_stats import (
     get_model_stats,
@@ -131,7 +131,7 @@ def find_measures_arrays(
                 done = False
                 if ds == inputs.shape[0] // 2:
                     raise ValueError(
-                        f"Can't split data anymore, but still unable to run. Something is wrong"
+                        "Can't split data anymore, but still unable to run. Something is wrong"
                     )
                 ds += 1
                 while inputs.shape[0] % ds != 0:

@@ -9,7 +9,9 @@ import networkx as nx
 import numpy as np
 from neps.search_spaces.graph_grammar.api import FunctionParameter
 from neps.search_spaces.graph_grammar.graph import Graph
-from neps.search_spaces.graph_grammar.utils import get_edge_lists_of_topologies
+from neps.search_spaces.graph_grammar.utils import (
+    get_edge_lists_of_topologies,
+)
 from neps.search_spaces.search_space import SearchSpace
 from path import Path
 from torch import nn
@@ -53,7 +55,12 @@ PRIMITIVES = {
         "dilation": 1,
         "affine": True,
     },
-    "avg_pool": {"op": nb201_ops.POOLING, "mode": "avg", "stride": 1, "affine": True},
+    "avg_pool": {
+        "op": nb201_ops.POOLING,
+        "mode": "avg",
+        "stride": 1,
+        "affine": True,
+    },
     "Cell": NASBench201Cell,
     # conv block level
     "conv3x3o": {
@@ -82,7 +89,8 @@ def get_nof_params(model: nn.Module) -> int:
 
 
 def build(
-    graph: Graph, n_classes: int = 10,
+    graph: Graph,
+    n_classes: int = 10,
 ):
     in_channels = 3
     base_channels = 16
@@ -90,7 +98,9 @@ def build(
     # max_channels = np.inf
     out_channels_factor = 4  # 64
 
-    def _create_architecture(_graph: Graph, _channels: int, return_model: bool = False):
+    def _create_architecture(
+        _graph: Graph, _channels: int, return_model: bool = False
+    ):
         in_node = [n for n in _graph.nodes if _graph.in_degree(n) == 0][0]
         for n in nx.topological_sort(_graph):
             for pred in _graph.predecessors(n):
@@ -101,12 +111,18 @@ def build(
                     pred_pred = list(_graph.predecessors(pred))[0]
                     channels = _graph.edges[(pred_pred, pred)]["C_out"]
                 if _graph.edges[e]["op_name"] == "ResNetBasicblock":
-                    _graph.edges[e].update({"C_in": channels, "C_out": channels * 2})
+                    _graph.edges[e].update(
+                        {"C_in": channels, "C_out": channels * 2}
+                    )
                 else:
-                    _graph.edges[e].update({"C_in": channels, "C_out": channels})
+                    _graph.edges[e].update(
+                        {"C_in": channels, "C_out": channels}
+                    )
 
         in_node = [n for n in _graph.nodes if _graph.in_degree(n) == 0][0]
-        out_node = [n for n in _graph.nodes if _graph.out_degree(n) == 0][0]
+        out_node = [n for n in _graph.nodes if _graph.out_degree(n) == 0][
+            0
+        ]
         max_node_label = max(_graph.nodes())
         _graph.add_nodes_from([max_node_label + 1, max_node_label + 2])
         _graph.add_edge(max_node_label + 1, in_node)
@@ -131,6 +147,8 @@ def build(
                 "op_name": "Out",
             }
         )
+
+        # this still uses the string method for creating a model
         if return_model:
             _graph.compile()
             _graph.update_op_names()
@@ -171,7 +189,9 @@ def constraints(
             if d is None:
                 continue
             if (
-                d.count("(") == 1 and d.count(")") == 1 and none_operation in d
+                d.count("(") == 1
+                and d.count(")") == 1
+                and none_operation in d
             ) or none_operation == d:
                 u, v = edge_list[topology][i]
                 current_pred_succ_mapping["pred"][v].remove(u)
@@ -185,7 +205,8 @@ def constraints(
             and v in current_pred_succ_mapping["succ"][u]
             and v in current_pred_succ_mapping["pred"]
             and u in current_pred_succ_mapping["pred"][v]
-            and i != edge_idx  # what would happen if edge would be set to zero -> remove
+            and i != edge_idx
+            # what would happen if edge would be set to zero -> remove
         ]
         graph = nx.DiGraph()
         graph.add_edges_from(cur_edge_list)
@@ -193,7 +214,11 @@ def constraints(
             not (len(graph) == 0 or graph.number_of_edges() == 0)
             and src_sink_map[topology][0] in graph.nodes
             and src_sink_map[topology][1] in graph.nodes
-            and nx.has_path(graph, src_sink_map[topology][0], src_sink_map[topology][1])
+            and nx.has_path(
+                graph,
+                src_sink_map[topology][0],
+                src_sink_map[topology][1],
+            )
         )
 
     src_sink_map = {}
@@ -207,7 +232,9 @@ def constraints(
         _constraints,
         edge_list=edge_list,
         src_sink_map=src_sink_map,
-        pred_succ_mapping={k: _compute_pred_succ(v) for k, v in edge_list.items()},
+        pred_succ_mapping={
+            k: _compute_pred_succ(v) for k, v in edge_list.items()
+        },
         none_operation=none_operation,
     )
 
@@ -226,7 +253,8 @@ class NB201Spaces:
                 "cell.cfg",
             ]
             productions = [
-                cls._read_grammar(grammar_file) for grammar_file in grammar_files
+                cls._read_grammar(grammar_file)
+                for grammar_file in grammar_files
             ]
             repetitive_kwargs = {
                 "fixed_macro_grammar": True,
@@ -235,41 +263,41 @@ class NB201Spaces:
                 },
             }
         elif space == "variable_multi_multi":  # => fully hierarchical
-            grammar_files = ["macro.cfg", "cell_flexible.cfg", "conv_block.cfg"]
+            grammar_files = [
+                "macro.cfg",
+                "cell_flexible.cfg",
+                "conv_block.cfg",
+            ]
             productions = cls._filter_productions(
                 "".join(
-                    [cls._read_grammar(grammar_file) for grammar_file in grammar_files]
+                    [
+                        cls._read_grammar(grammar_file)
+                        for grammar_file in grammar_files
+                    ]
                 )
             )
         else:
             raise NotImplementedError(f"Space {space} is not implemented")
 
-        if dataset == "cifar10":
-            build_fn = partial(
-                build, n_classes=10,
+        dataset_classes = {
+            "cifar10": 10,
+            "cifar100": 100,
+            "ImageNet16-120": 120,
+            "addNIST": 20,
+            "cifarTile": 4,
+        }
+
+        try:
+            build_fn = partial(build, n_classes=dataset_classes[dataset])
+        except KeyError:
+            raise NotImplementedError(
+                f"Dataset {dataset} is not implemented"
             )
-        elif dataset == "cifar100":
-            build_fn = partial(
-                build, n_classes=100,
-            )
-        elif dataset == "ImageNet16-120":
-            build_fn = partial(
-                build, n_classes=120,
-            )
-        elif dataset == "addNIST":
-            build_fn = partial(
-                build, n_classes=20,
-            )
-        elif dataset == "cifarTile":
-            build_fn = partial(
-                build, n_classes=4,
-            )
-        else:
-            raise NotImplementedError(f"Dataset {dataset} is not implemented")
 
         constraints_kwargs = {
             "constraints": constraints(
-                edge_list=get_edge_lists_of_topologies(PRIMITIVES), none_operation="zero"
+                edge_list=get_edge_lists_of_topologies(PRIMITIVES),
+                none_operation="zero",
             ),
             "none_operation": "zero",
         }
@@ -313,7 +341,9 @@ if __name__ == "__main__":
     import time
 
     # pylint: disable=ungrouped-imports
-    from neps.optimizers.bayesian_optimization.kernels import GraphKernelMapping
+    from neps.optimizers.bayesian_optimization.kernels import (
+        GraphKernelMapping,
+    )
     from neps.optimizers.bayesian_optimization.models.gp_hierarchy import (
         ComprehensiveGPHierarchy,
     )
@@ -346,39 +376,59 @@ if __name__ == "__main__":
         pipeline_space = SearchSpace(**pipeline_space)
 
         sampled_pipeline_space = pipeline_space.sample(patience=3)
-        _ = sampled_pipeline_space.hyperparameters["architecture"].to_pytorch()
+        _ = sampled_pipeline_space.hyperparameters[
+            "architecture"
+        ].to_pytorch()
         mutated_sampled_pipeline = sampled_pipeline_space.mutate()
         sampled_pipeline_space2 = pipeline_space.sample(patience=3)
         crossover_sampled_pipeline = sampled_pipeline_space.crossover(
             sampled_pipeline_space2
         )
 
-        value = sampled_pipeline_space.hyperparameters["architecture"].value
+        value = sampled_pipeline_space.hyperparameters[
+            "architecture"
+        ].value
         if len(value) == 1:
             value = value[0]
         hierarchy_graphs = value[1]
         print(
             space,
-            math.log10(pipeline_space.hyperparameters["architecture"].search_space_size),
+            math.log10(
+                pipeline_space.hyperparameters[
+                    "architecture"
+                ].search_space_size
+            ),
             len(hierarchy_graphs),
         )
 
     # test ops
     pipeline_space = dict(
-        architecture=NB201Spaces(space="variable_multi_multi", dataset="cifar10"),
+        architecture=NB201Spaces(
+            space="variable_multi_multi", dataset="cifar10"
+        ),
     )
     pipeline_space = SearchSpace(**pipeline_space)
     pipeline_space = pipeline_space.sample()
     _ = run_pipeline(pipeline_space.hyperparameters["architecture"])
-    print(math.log10(pipeline_space.hyperparameters["architecture"].search_space_size))
+    print(
+        math.log10(
+            pipeline_space.hyperparameters[
+                "architecture"
+            ].search_space_size
+        )
+    )
     sampled_pipeline_space = pipeline_space.sample()
-    _ = sampled_pipeline_space.hyperparameters["architecture"].to_pytorch()
+    _ = sampled_pipeline_space.hyperparameters[
+        "architecture"
+    ].to_pytorch()
     sampled_pipeline_space.mutate()
     pipeline_space2 = pipeline_space.copy()
     sampled_pipeline_space2 = pipeline_space2.sample()
     sampled_pipeline_space.crossover(sampled_pipeline_space2)
 
-    hierarchy_considered = NB201_HIERARCHIES_CONSIDERED["variable_multi_multi"]
+    hierarchy_considered = NB201_HIERARCHIES_CONSIDERED[
+        "variable_multi_multi"
+    ]
     graph_kernels = ["wl"] * (len(hierarchy_considered) + 1)
     wl_h = [2, 1] + [2] * (len(hierarchy_considered) - 1)
     graph_kernels = [

@@ -1,6 +1,9 @@
-import random, torch
-import torch.nn as nn
+import random
 from copy import deepcopy
+
+import torch
+import torch.nn as nn
+
 from experiments.darts_utils.cell_operations import OPS
 
 

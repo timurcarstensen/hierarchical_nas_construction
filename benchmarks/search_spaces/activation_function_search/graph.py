@@ -1,21 +1,25 @@
-from copy import deepcopy
-import os
-from path import Path
-from functools import partial
 import inspect
+import os
+from copy import deepcopy
+from functools import partial
 
 import neps.search_spaces.graph_grammar.topologies as topos
+import torch
 from neps.search_spaces.graph_grammar.api import FunctionParameter
 from neps.search_spaces.graph_grammar.graph import Graph
-from torchvision import models
-import torch
+from path import Path
 from torch import nn
+from torchvision import models
 
-import benchmarks.search_spaces.activation_function_search.unary_operations as UnaryOp
-from benchmarks.search_spaces.activation_function_search.stacking import Stacking
-import benchmarks.search_spaces.activation_function_search.kvary_operations as BinaryOp
-from benchmarks.search_spaces.activation_function_search.topologies import BinaryTopo
 import benchmarks.search_spaces.activation_function_search.cifar_models as cifar_models
+import benchmarks.search_spaces.activation_function_search.kvary_operations as BinaryOp
+import benchmarks.search_spaces.activation_function_search.unary_operations as UnaryOp
+from benchmarks.search_spaces.activation_function_search.stacking import (
+    Stacking,
+)
+from benchmarks.search_spaces.activation_function_search.topologies import (
+    BinaryTopo,
+)
 
 DIR_PATH = Path(os.path.dirname(os.path.realpath(__file__)))
 
@@ -142,8 +146,9 @@ class ActivationSpace:
         return productions
 
 if __name__ == "__main__":
-    from neps.search_spaces.search_space import SearchSpace
     import math
+
+    from neps.search_spaces.search_space import SearchSpace
 
     pipeline_space = dict(
         architecture=ActivationSpace(base_architecture="resnet20"),

@@ -1,6 +1,11 @@
 import torch
 import torch.nn as nn
-from experiments.darts_utils.net2wider import InChannelWider, OutChannelWider, BNWider
+
+from experiments.darts_utils.net2wider import (
+  BNWider,
+  InChannelWider,
+  OutChannelWider,
+)
 
 __all__ = ['OPS', 'ResNetBasicblock', 'SearchSpaceNames']
 

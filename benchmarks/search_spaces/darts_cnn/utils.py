@@ -216,7 +216,7 @@ def process_step_matrix(x, method, mask, tau=None):
 
 
 def prune(x, num_keep, mask, reset=False):
-    if not mask is None:
+    if mask is not None:
         x.data[~mask] -= 1000000
     src, index = x.topk(k=num_keep, dim=-1)
     if not reset:

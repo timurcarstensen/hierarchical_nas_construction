@@ -38,6 +38,9 @@ class AddNISTObjective(Objective):
             self.n_epochs = 64
 
     def __call__(self, working_directory, previous_working_director, architecture, **hp):
+        """
+        Evaluates the architecture on the addNIST dataset.
+        """
         start = time.time()
         if isinstance(architecture, SearchSpace):
             model = architecture.hyperparameters["graph"].get_model_for_evaluation()
@@ -53,22 +56,30 @@ class AddNISTObjective(Objective):
         else:
             raise NotImplementedError
 
+        # Push the model to the GPU and set it to train mode
         model.cuda()
         model.train()
+
+        # Define the loss function and the evaluation metric
         train_criterion = get_loss("CrossEntropyLoss")
         evaluation_metric = get_evaluation_metric("Accuracy", top_k=1)
         evaluation_metric.cuda()
 
+        # Define the optimizer and the scheduler
         optimizer = get_optimizer("SGD", model, **self.optim_kwargs)
         scheduler = get_scheduler(
             scheduler="CosineAnnealingLR", optimizer=optimizer, T_max=self.n_epochs
         )
+
+        # Get the data loaders
         train_loader, valid_loader, test_loader = get_train_val_test_loaders(
             dataset=self.dataset,
             data=self.data_path,
             batch_size=self.batch_size,
             eval_mode=self.eval_mode,
         )
+
+        # Run the training pipeline
         results = training_pipeline(
             model=model,
             train_criterion=train_criterion,
@@ -91,6 +102,8 @@ class AddNISTObjective(Objective):
             if self.failed_runs > 10:
                 raise Exception("Too many failed runs!")
         end = time.time()
+
+        # Clean up to save memory
         del model
         del train_criterion
         del evaluation_metric

@@ -1,6 +1,11 @@
+from typing import Any, Dict, Optional
+
 import numpy as np
 import torch
 import torchmetrics
+from torch import nn
+from torch.optim import Optimizer
+from torch.utils.data import DataLoader
 
 
 def general_num_params(m):
@@ -15,7 +20,11 @@ def reset_weights(m):
         m.reset_parameters()
 
 
-def train(model, optimizer, criterion, loader, **train_args):
+def train(model: nn.Module, optimizer: torch.optim.Optimizer, criterion,
+          loader: DataLoader, **train_args):
+    """
+    Trains a model on a given loader for one epoch.
+    """
     model.train()
     grad_clip = train_args["grad_clip"] if "grad_clip" in train_args else None
     for data_blob in loader:
@@ -30,7 +39,9 @@ def train(model, optimizer, criterion, loader, **train_args):
 
 
 @torch.no_grad()
-def evaluate(model, metric, loader):
+def evaluate(model: nn.Module, metric: torchmetrics.Metric | nn.Module,
+             loader: DataLoader) -> float:
+    """Evaluates a model on a given loader for one epoch."""
     model.eval()
     metric.reset()
     for data_blob in loader:
@@ -41,18 +52,22 @@ def evaluate(model, metric, loader):
 
 
 def run_training(
-    model,
-    train_criterion,
-    evaluation_metric,
-    optimizer,
+    model: torch.nn.Module,
+    train_criterion: torch.nn.Module,
+    evaluation_metric: torch.nn.Module,
+    optimizer: Optimizer,
     scheduler,
-    train_loader,
-    valid_loader,
-    test_loader,
-    n_epochs,
+    train_loader: DataLoader,
+    valid_loader: Optional[DataLoader],
+    test_loader: Optional[DataLoader],
+    n_epochs: int,
     eval_mode: bool = False,
-    **train_args,
-):
+    **train_args: Any,
+) -> Dict[str, Any]:
+    """
+    Run the training loop for a given number of epochs, including validation and testing.
+    Returns a dictionary containing training results and statistics.
+    """
     best_valid_score = 0
     best_epoch = 0
     valid_scores = []
@@ -111,9 +126,9 @@ def training_pipeline(
     optimizer: torch.optim.Optimizer,
     scheduler,
     n_epochs: int,
-    train_loader: torch.utils.data.DataLoader,
-    valid_loader: torch.utils.data.DataLoader = None,
-    test_loader: torch.utils.data.DataLoader = None,
+    train_loader: DataLoader,
+    valid_loader: DataLoader = None,
+    test_loader: DataLoader = None,
     eval_mode: bool = False,
     **train_args,
 ) -> dict:
@@ -136,7 +151,7 @@ def training_pipeline(
         Similarly, if there is a test_loader, there will be test scores per epoch. Note
         that there will be no best epoch index if no validation data is provided.
     """
-    model.apply(reset_weights)
+    model.apply(fn=reset_weights)
     results = run_training(
         model=model,
         train_criterion=train_criterion,

@@ -21,10 +21,11 @@ Reference:
 If you use this implementation in you work, please don't forget to mention the
 author, Yerlan Idelbayev.
 '''
-from torch import nn
+import math
+
 import torch.nn.functional as F
 import torch.nn.init as init
-import math
+from torch import nn
 
 __all__ = ['ResNet', 'resnet20', 'resnet32', 'resnet44', 'resnet56', 'resnet110', 'resnet1202', "resnet164"]
 

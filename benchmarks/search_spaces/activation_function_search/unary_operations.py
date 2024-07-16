@@ -1,5 +1,4 @@
 import torch
-
 from neps.search_spaces.graph_grammar.primitives import AbstractPrimitive
 
 EPS = 1e-6

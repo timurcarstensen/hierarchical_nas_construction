@@ -9,6 +9,10 @@ import torch.nn as nn
 import torch.utils
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
+from path import Path
+from torch.autograd import Variable
+
+import experiments.darts_utils.utils as utils
 from benchmarks.evaluation.utils import HelperDataset, _load_npy_data
 from benchmarks.objectives.custom_nb201.DownsampledImageNet import (
     ImageNet16,
@@ -16,10 +20,6 @@ from benchmarks.objectives.custom_nb201.DownsampledImageNet import (
 from benchmarks.objectives.custom_nb201.evaluate_utils import (
     prepare_seed,
 )
-from path import Path
-from torch.autograd import Variable
-
-import experiments.darts_utils.utils as utils
 from experiments.darts_utils.architect import Architect
 from experiments.darts_utils.cell_operations import NAS_BENCH_201
 from experiments.darts_utils.net2wider import (

@@ -1,6 +1,7 @@
-import torch.nn as nn
-import torch
 import numpy as np
+import torch
+import torch.nn as nn
+
 '''
 ---- 1) FLOPs: floating point operations
 ---- 2) #Activations: the number of elements of all ‘Conv2d’ outputs

@@ -466,7 +466,7 @@ def evaluate_for_seed(
     )
     scaler = torch.cuda.amp.GradScaler()
     if workers > 1:
-        model = torch.nn.DataParallel(model)
+        model = torch.nn.parallel.DistributedDataParallel(model)
 
     start_epoch = 0
     total_epochs = config.epochs + config.warmup
@@ -538,7 +538,6 @@ def evaluate_for_seed(
 
 
 class NB201Pipeline(Objective):
-    n_epochs = 200
     gradient_accumulations = 1  # 2
     workers = 4
 
@@ -547,10 +546,10 @@ class NB201Pipeline(Objective):
         dataset: str,
         data_path,
         seed: int,
-        log_scale: bool = True,
-        negative: bool = False,
-        eval_mode: bool = False,
-        is_fidelity: bool = False,
+        log_scale: Optional[bool] = True,
+        negative: Optional[bool] = False,
+        eval_mode: Optional[bool] = False,
+        is_fidelity: Optional[bool] = False,  # TODO: the fuck does this mean
     ) -> None:
         assert seed in [555, 666, 777, 888, 999]
         super().__init__(seed, log_scale, negative)
@@ -564,14 +563,17 @@ class NB201Pipeline(Objective):
 
         self.is_fidelity = is_fidelity
 
-        if self.dataset == "cifar10":
-            self.num_classes = 10
-        elif self.dataset == "cifar100":
-            self.num_classes = 100
-        elif self.dataset == "ImageNet16-120":
-            self.num_classes = 120
-        else:
-            raise NotImplementedError
+        match self.dataset:
+            case "cifar10":
+                self.num_classes = 10
+            case "cifar100":
+                self.num_classes = 100
+            case "ImageNet16-120":
+                self.num_classes = 120
+            case _:
+                raise NotImplementedError(
+                    f"Dataset '{self.dataset}' is not implemented"
+                )
 
     # noinspection PyMethodOverriding
     def __call__(
@@ -595,7 +597,7 @@ class NB201Pipeline(Objective):
                     workers=self.workers,
                     use_trivial_augment=hp.get("trivial_augment", False),
                     eval_mode=self.eval_mode,
-                    use_less=True
+                    use_less=True,
                 )
 
                 # fix seed for reproducibility

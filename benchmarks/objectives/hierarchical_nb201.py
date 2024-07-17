@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 from copy import deepcopy
@@ -482,6 +483,7 @@ def evaluate_for_seed(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model, criterion = model.to(device), criterion.to(device)
     for epoch in range(start_epoch, total_epochs):
+        logging.info(f"Epoch {epoch}")
         scheduler.update(epoch, 0.0)
         _ = procedure(
             dataloader=train_dataloader,

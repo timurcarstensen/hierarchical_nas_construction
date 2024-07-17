@@ -2,7 +2,7 @@ import os
 import time
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any, Literal, NamedTuple, Optional
 
 import torch
 from benchmarks.evaluation.objective import Objective
@@ -142,13 +142,13 @@ def get_dataset(
     # load datasets using torchvision
     if name == "cifar10":
         train_data = dset.CIFAR10(
-            root,
+            root=root,
             train=True,
             transform=train_transform,
             download=True,
         )
         test_data = dset.CIFAR10(
-            root,
+            root=root,
             train=False,
             transform=test_transform,
             download=True,
@@ -157,13 +157,13 @@ def get_dataset(
         assert len(test_data) == 10000
     elif name == "cifar100":
         train_data = dset.CIFAR100(
-            root,
+            root=root,
             train=True,
             transform=train_transform,
             download=True,
         )
         test_data = dset.CIFAR100(
-            root,
+            root=root,
             train=False,
             transform=test_transform,
             download=True,
@@ -183,23 +183,35 @@ def get_dataset(
             len(train_data) == 1281167 and len(test_data) == 50000
         ), f"invalid number of images : {len(train_data)} & {len(test_data)} vs {1281167} & {50000}"
     elif name == "ImageNet16":
-        train_data = ImageNet16(root, True, train_transform)
-        test_data = ImageNet16(root, False, test_transform)
+        train_data = ImageNet16(root=root, train=True, transform=train_transform)
+        test_data = ImageNet16(root=root, train=False, transform=test_transform)
         assert len(train_data) == 1281167
         assert len(test_data) == 50000
     elif name == "ImageNet16-120":
-        train_data = ImageNet16(root, True, train_transform, 120)
-        test_data = ImageNet16(root, False, test_transform, 120)
+        train_data = ImageNet16(
+            root=root, train=True, transform=train_transform, use_num_of_class_only=120
+        )
+        test_data = ImageNet16(
+            root=root, train=False, transform=test_transform, use_num_of_class_only=120
+        )
         assert len(train_data) == 151700
         assert len(test_data) == 6000
     elif name == "ImageNet16-150":
-        train_data = ImageNet16(root, True, train_transform, 150)
-        test_data = ImageNet16(root, False, test_transform, 150)
+        train_data = ImageNet16(
+            root=root, train=True, transform=train_transform, use_num_of_class_only=150
+        )
+        test_data = ImageNet16(
+            root=root, train=False, transform=test_transform, use_num_of_class_only=150
+        )
         assert len(train_data) == 190272
         assert len(test_data) == 7500
     elif name == "ImageNet16-200":
-        train_data = ImageNet16(root, True, train_transform, 200)
-        test_data = ImageNet16(root, False, test_transform, 200)
+        train_data = ImageNet16(
+            root=root, train=True, transform=train_transform, use_num_of_class_only=200
+        )
+        test_data = ImageNet16(
+            root=root, train=False, transform=test_transform, use_num_of_class_only=200
+        )
         assert len(train_data) == 254775
         assert len(test_data) == 10000
     else:
@@ -378,14 +390,14 @@ def get_dataloaders(
 
 
 def procedure(
-    xloader,
-    network,
+    dataloader: DataLoader,
+    network: nn.Module,
     criterion,
     scheduler,
-    optimizer,
-    scaler,
-    gradient_accumulations,
-    mode,
+    mode: Literal["train", "valid"],
+    optimizer: Optional[torch.optim.Optimizer] = None,
+    scaler: Optional[torch.cuda.amp.GradScaler] = None,
+    gradient_accumulations: Optional[int] = None,
 ):
     if mode == "train":
         network.train()
@@ -397,9 +409,9 @@ def procedure(
 
     if mode == "train":
         network.zero_grad()
-    for i, (inputs, targets) in enumerate(xloader):
+    for i, (inputs, targets) in enumerate(dataloader):
         if mode == "train":
-            scheduler.update(None, 1.0 * i / len(xloader))
+            scheduler.update(None, 1.0 * i / len(dataloader))
 
         device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu",
@@ -469,7 +481,7 @@ def evaluate_for_seed(
     for epoch in range(start_epoch, total_epochs):
         scheduler.update(epoch, 0.0)
         _ = procedure(
-            xloader=train_loader,
+            dataloader=train_loader,
             network=model,
             criterion=criterion,
             scheduler=scheduler,
@@ -484,7 +496,7 @@ def evaluate_for_seed(
         out_dict = {}
         for key, xloader in valid_loaders.items():
             valid_acc1, valid_acc5 = procedure(
-                xloader=xloader,
+                dataloader=xloader,
                 network=model,
                 criterion=criterion,
                 scheduler=None,
@@ -571,8 +583,8 @@ class NB201Pipeline(Objective):
             try:
                 start = time.time()
                 config, train_loader, val_loaders = get_dataloaders(
-                    self.dataset,
-                    self.data_path,
+                    dataset=self.dataset,
+                    root=self.data_path,
                     epochs=self.n_epochs,
                     gradient_accumulations=gradient_accumulations,
                     workers=self.workers,
@@ -591,10 +603,10 @@ class NB201Pipeline(Objective):
 
                 if self.is_fidelity:
                     out_dict = evaluate_for_seed(
-                        model,
-                        config,
-                        train_loader,
-                        val_loaders,
+                        model=model,
+                        config=config,
+                        train_loader=train_loader,
+                        valid_loaders=val_loaders,
                         gradient_accumulations=gradient_accumulations,
                         workers=self.workers,
                         working_directory=working_directory,
@@ -602,10 +614,10 @@ class NB201Pipeline(Objective):
                     )
                 else:
                     out_dict = evaluate_for_seed(
-                        model,
-                        config,
-                        train_loader,
-                        val_loaders,
+                        model=model,
+                        config=config,
+                        train_loader=train_loader,
+                        valid_loaders=val_loaders,
                         gradient_accumulations=gradient_accumulations,
                         workers=self.workers,
                     )

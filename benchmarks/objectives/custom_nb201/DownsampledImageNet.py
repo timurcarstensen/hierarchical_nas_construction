@@ -4,6 +4,7 @@
 import hashlib
 import os
 import pickle
+from typing import Optional
 
 import numpy as np
 from PIL import Image
@@ -52,7 +53,13 @@ class ImageNet16(data.Dataset):
         ["val_data", "3410e3017fdaefba8d5073aaa65e4bd6"],
     ]
 
-    def __init__(self, root, train, transform, use_num_of_class_only=None):
+    def __init__(
+        self,
+        root: str,
+        train: bool,
+        transform,
+        use_num_of_class_only: Optional[int] = None,
+    ):
         self.root = os.path.join(root, "ImageNet16")
         self.transform = transform
         self.train = train  # training set or valid set

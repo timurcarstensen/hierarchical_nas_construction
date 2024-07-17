@@ -13,20 +13,6 @@
 # limitations under the License.
 # =============================================================================
 
-# pylint: disable=unused-import
-from . import (
-    epe_nas,
-    fisher,
-    grad_norm,
-    grasp,
-    jacov,
-    l2_norm,
-    nwot,
-    plain,
-    snip,
-    synflow,
-    zen,
-)
 
 available_measures = []
 _measure_impls = {}
@@ -64,6 +50,21 @@ def measure(name, bn=True, copy_net=True, force_clean=True, **impl_args):
 def calc_measure(name, net, device, *args, **kwargs):
     return _measure_impls[name](net, device, *args, **kwargs)
 
+
+# pylint: disable=unused-import
+from . import (  # noqa: E402, I001
+    epe_nas,
+    fisher,
+    grad_norm,
+    grasp,
+    jacov,
+    l2_norm,
+    nwot,
+    plain,
+    snip,
+    synflow,
+    zen,
+)
 
 __all__ = [
     "epe_nas",

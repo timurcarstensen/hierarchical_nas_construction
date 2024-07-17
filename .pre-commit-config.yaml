@@ -14,18 +14,3 @@ repos:
     hooks:
       - id: pyupgrade
         args: [ --py37-plus ]
-
-  - repo: https://github.com/executablebooks/mdformat
-    rev: 0.7.11
-    hooks:
-      - id: mdformat
-        additional_dependencies:
-          - mdformat-gfm
-          - mdformat-tables
-          - mdformat-beautysh
-          - mdformat-black
-
-  - repo: https://github.com/PyCQA/pylint
-    rev: v2.12.2
-    hooks:
-      - id: pylint

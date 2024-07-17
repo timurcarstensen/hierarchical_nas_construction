@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Literal, NamedTuple, Optional
 
 import torch
+import torch.distributed as dist
 from benchmarks.evaluation.objective import Objective
 from benchmarks.objectives.custom_nb201.config_utils import load_config
 from benchmarks.objectives.custom_nb201.custom_augmentations import (
@@ -37,6 +38,18 @@ Dataset2Class = {
     "ImageNet16-120": 120,
     "ImageNet16-200": 200,
 }
+
+
+# TODO: still needs integrating with DDP
+def setup(rank, world_size):
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12355"
+    dist.init_process_group("gloo", rank=rank, world_size=world_size)
+
+
+# TODO: still needs integrating with DDP
+def cleanup():
+    dist.destroy_process_group()
 
 
 def get_dataset(
@@ -222,78 +235,94 @@ def get_dataset(
     return train_data, test_data, xshape, class_num
 
 
+def get_config_and_split_info(
+    dataset: Literal["cifar10", "cifar100", "ImageNet16-120"],
+    dir_path: Path,
+    use_less: bool,
+) -> tuple[Path, NamedTuple]:
+    if dataset in ("cifar10", "cifar100"):
+        config_path = dir_path / ("LESS.config" if use_less else "CIFAR.config")
+        split_info_path = dir_path / "cifar-split.txt"
+    elif dataset.startswith("ImageNet16"):
+        config_path = dir_path / ("LESS.config" if use_less else "ImageNet-16.config")
+        split_info_path = dir_path / f"{dataset}-split.txt"
+    else:
+        raise ValueError(f"Invalid dataset: {dataset}")
+
+    split_info = load_config(split_info_path, None)
+
+    return config_path, split_info
+
+
 def get_dataloaders(
-    dataset: str,
+    dataset: Literal["cifar10", "cifar100", "ImageNet16-120"],
     root: str,
     epochs: int,
-    gradient_accumulations: int = 1,
-    workers: int = 4,
-    use_less: bool = False,
-    use_trivial_augment: bool = False,
-    eval_mode: bool = False,
+    gradient_accumulations: Optional[int] = 1,
+    workers: Optional[int] = 4,
+    use_less: Optional[bool] = False,
+    use_trivial_augment: Optional[bool] = False,
+    eval_mode: Optional[bool] = False,
 ):
     """Prepare and return data loaders for the specified dataset (CIFAR-10, CIFAR-100, or
     ImageNet16). Sets up training and validation/testing loaders based on given parameters
      and configurations.
     """
+
     train_data, valid_data, xshape, class_num = get_dataset(
         name=dataset,
         root=root,
         cutout=-1,
         use_trivial_augment=use_trivial_augment,
     )
-    dir_path = Path(os.path.dirname(os.path.realpath(__file__)))
-    if dataset in ("cifar10", "cifar100"):
-        if use_less:  # check again
-            config_path = "custom_nb201/configs/LESS.config"
-        else:
-            config_path = "custom_nb201/configs/CIFAR.config"
-        split_info = load_config(
-            dir_path / "custom_nb201/configs/cifar-split.txt",
-            None,
-        )
-    elif dataset.startswith("ImageNet16"):
-        if use_less:
-            config_path = "custom_nb201/configs/LESS.config"
-        else:
-            config_path = "custom_nb201/configs/ImageNet-16.config"
-        split_info = load_config(
-            dir_path / f"custom_nb201/configs/{dataset}-split.txt",
-            None,
-        )
-    else:
-        raise ValueError(f"invalid dataset : {dataset}")
 
+    # TODO: actually use this
+    if torch.cuda.device_count() > 1:
+        torch.utils.data.distributed.DistributedSampler(train_data)
+        torch.utils.data.distributed.DistributedSampler(valid_data)
+
+    dir_path = (
+        Path(os.path.dirname(os.path.realpath(__file__))) / "custom_nb201/configs"
+    )
+    config_path, split_info = get_config_and_split_info(
+        dataset=dataset, dir_path=dir_path, use_less=use_less
+    )
     # load config, this returns a NamedTuple
     config = load_config(
-        path=dir_path / config_path,
+        path=config_path,
         extra={
             "class_num": class_num,
             "xshape": xshape,
             "epochs": epochs,
         },
     )
-    # check whether use splited validation set
+    # check whether use the split validation set
     if dataset == "cifar10" and not eval_mode:
         val_loaders = {
+            # ori-test is the *original* test set (here: validation set)
             "ori-test": DataLoader(
                 dataset=valid_data,
                 batch_size=config.batch_size // gradient_accumulations,
                 shuffle=False,
                 num_workers=workers,
                 pin_memory=True,
-            ),
-        }
-        assert (
-            len(train_data)
-            == len(split_info.train)
-            + len(
-                split_info.valid,
             )
-        ), f"invalid length : {len(train_data)} vs {len(split_info.train)} + {len(split_info.valid)}"
+        }
+
+        # assert that the splits (train and valid) have the same length as the train
+        # dataset split in cifar10
+        assert len(train_data) == len(split_info.train) + len(
+            split_info.valid,
+        ), (
+            f"invalid length : {len(train_data)} vs {len(split_info.train)} +"
+            f" {len(split_info.valid)}"
+        )
         train_data_v2 = deepcopy(train_data)
         train_data_v2.transform = valid_data.transform
         valid_data = train_data_v2
+
+        # TODO: if we want to use the DistributedSampler, we have to split the training
+        #  dataset using the indices in split_info.train and split_info.valid and then pass it!!!!
         # data loader
         train_loader = DataLoader(
             train_data,
@@ -304,6 +333,10 @@ def get_dataloaders(
             num_workers=workers,
             pin_memory=True,
         )
+
+        # this is again the training data but now with the validation split
+        # TODO: why don't we actually use the `train_data` again but with the
+        #  `valid_data.transform`?
         valid_loader = DataLoader(
             valid_data,
             batch_size=config.batch_size // gradient_accumulations,
@@ -317,14 +350,14 @@ def get_dataloaders(
     else:
         # data loader
         train_loader = DataLoader(
-            train_data,
+            dataset=train_data,
             batch_size=config.batch_size // gradient_accumulations,
             shuffle=True,
             num_workers=workers,
             pin_memory=True,
         )
         valid_loader = DataLoader(
-            valid_data,
+            dataset=valid_data,
             batch_size=config.batch_size // gradient_accumulations,
             shuffle=False,
             num_workers=workers,
@@ -334,8 +367,8 @@ def get_dataloaders(
             val_loaders = {"ori-test": valid_loader}
         elif dataset == "cifar100":
             cifar100_splits = load_config(
-                dir_path / "custom_nb201/configs/cifar100-test-split.txt",
-                None,
+                path=dir_path / "cifar100-test-split.txt",
+                extra=None,
             )
             val_loaders = {
                 "ori-test": valid_loader,
@@ -546,6 +579,7 @@ class NB201Pipeline(Objective):
         dataset: str,
         data_path,
         seed: int,
+        n_epochs: Optional[int] = 12,
         log_scale: Optional[bool] = True,
         negative: Optional[bool] = False,
         eval_mode: Optional[bool] = False,
@@ -558,6 +592,8 @@ class NB201Pipeline(Objective):
         self.failed_runs = 0
 
         self.eval_mode = eval_mode
+
+        self.n_epochs = n_epochs
         if self.eval_mode:
             self.n_epochs = 200
 
@@ -585,6 +621,7 @@ class NB201Pipeline(Objective):
     ):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+
         gradient_accumulations = self.gradient_accumulations
         while gradient_accumulations < 16:
             try:

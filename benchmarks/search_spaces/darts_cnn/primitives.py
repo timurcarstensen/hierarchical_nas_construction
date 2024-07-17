@@ -66,7 +66,9 @@ class Pooling(DARTSAbstractPrimitive):
         assert pool_type in ["avg", "max"]
         self.pool_type = pool_type
         if pool_type == "avg":
-            self.pool = nn.AvgPool2d(3, stride=stride, padding=1, count_include_pad=False)
+            self.pool = nn.AvgPool2d(
+                3, stride=stride, padding=1, count_include_pad=False
+            )
         elif pool_type == "max":
             self.pool = nn.MaxPool2d(3, stride=stride, padding=1)
 

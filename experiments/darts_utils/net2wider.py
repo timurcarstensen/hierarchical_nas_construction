@@ -8,18 +8,19 @@ def InChannelWider(module, new_channels, index=None):
     in_channels = weight.size(1)
 
     if index is None:
-        index = torch.randint(low=0, high=in_channels,
-                              size=(new_channels-in_channels,))
+        index = torch.randint(
+            low=0, high=in_channels, size=(new_channels - in_channels,)
+        )
     module.weight = nn.Parameter(
-        torch.cat([weight, weight[:, index, :, :].clone()], dim=1), requires_grad=True)
+        torch.cat([weight, weight[:, index, :, :].clone()], dim=1), requires_grad=True
+    )
 
     module.in_channels = new_channels
     module.weight.in_index = index
     module.weight.t = "conv"
     if hasattr(weight, "out_index"):
         module.weight.out_index = weight.out_index
-    module.weight.raw_id = weight.raw_id if hasattr(
-        weight, "raw_id") else id(weight)
+    module.weight.raw_id = weight.raw_id if hasattr(weight, "raw_id") else id(weight)
     return module, index
 
 
@@ -29,18 +30,19 @@ def OutChannelWider(module, new_channels, index=None):
     out_channels = weight.size(0)
 
     if index is None:
-        index = torch.randint(low=0, high=out_channels,
-                              size=(new_channels-out_channels,))
+        index = torch.randint(
+            low=0, high=out_channels, size=(new_channels - out_channels,)
+        )
     module.weight = nn.Parameter(
-        torch.cat([weight, weight[index, :, :, :].clone()], dim=0), requires_grad=True)
+        torch.cat([weight, weight[index, :, :, :].clone()], dim=0), requires_grad=True
+    )
 
     module.out_channels = new_channels
     module.weight.out_index = index
     module.weight.t = "conv"
     if hasattr(weight, "in_index"):
         module.weight.in_index = weight.in_index
-    module.weight.raw_id = weight.raw_id if hasattr(
-        weight, "raw_id") else id(weight)
+    module.weight.raw_id = weight.raw_id if hasattr(weight, "raw_id") else id(weight)
     return module, index
 
 
@@ -53,24 +55,27 @@ def BNWider(module, new_features, index=None):
     num_features = module.num_features
 
     if index is None:
-        index = torch.randint(low=0, high=num_features,
-                              size=(new_features-num_features,))
+        index = torch.randint(
+            low=0, high=num_features, size=(new_features - num_features,)
+        )
     module.running_mean = torch.cat([running_mean, running_mean[index].clone()])
     module.running_var = torch.cat([running_var, running_var[index].clone()])
     if module.affine:
         module.weight = nn.Parameter(
-            torch.cat([weight, weight[index].clone()], dim=0), requires_grad=True)
+            torch.cat([weight, weight[index].clone()], dim=0), requires_grad=True
+        )
         module.bias = nn.Parameter(
-            torch.cat([bias, bias[index].clone()], dim=0), requires_grad=True)
+            torch.cat([bias, bias[index].clone()], dim=0), requires_grad=True
+        )
 
         module.weight.out_index = index
         module.bias.out_index = index
         module.weight.t = "bn"
         module.bias.t = "bn"
-        module.weight.raw_id = weight.raw_id if hasattr(
-            weight, "raw_id") else id(weight)
-        module.bias.raw_id = bias.raw_id if hasattr(
-            bias, "raw_id") else id(bias)
+        module.weight.raw_id = (
+            weight.raw_id if hasattr(weight, "raw_id") else id(weight)
+        )
+        module.bias.raw_id = bias.raw_id if hasattr(bias, "raw_id") else id(bias)
     module.num_features = new_features
     return module, index
 
@@ -87,7 +92,12 @@ def configure_optimizer(optimizer_old, optimizer_new):
         if p.t == "bn":
             # BN layer
             state_new["momentum_buffer"] = torch.cat(
-                [state_new["momentum_buffer"], state_new["momentum_buffer"][p.out_index].clone()], dim=0)
+                [
+                    state_new["momentum_buffer"],
+                    state_new["momentum_buffer"][p.out_index].clone(),
+                ],
+                dim=0,
+            )
             # clean to enable multiple call
             del p.t, p.raw_id, p.out_index
 
@@ -95,10 +105,20 @@ def configure_optimizer(optimizer_old, optimizer_new):
             # conv layer
             if hasattr(p, "in_index"):
                 state_new["momentum_buffer"] = torch.cat(
-                    [state_new["momentum_buffer"], state_new["momentum_buffer"][:, p.in_index, :, :].clone()], dim=1)
+                    [
+                        state_new["momentum_buffer"],
+                        state_new["momentum_buffer"][:, p.in_index, :, :].clone(),
+                    ],
+                    dim=1,
+                )
             if hasattr(p, "out_index"):
                 state_new["momentum_buffer"] = torch.cat(
-                    [state_new["momentum_buffer"], state_new["momentum_buffer"][p.out_index, :, :, :].clone()], dim=0)
+                    [
+                        state_new["momentum_buffer"],
+                        state_new["momentum_buffer"][p.out_index, :, :, :].clone(),
+                    ],
+                    dim=0,
+                )
             # clean to enable multiple call
             del p.t, p.raw_id
             if hasattr(p, "in_index"):

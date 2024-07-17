@@ -57,7 +57,8 @@ def process_torch_dataset(name, location, verbose=True, return_data=False):
         (train_x, train_y, _), (test_x, test_y) = load_addnist_data()
     elif name == "Language":
         (train_x, train_y), (test_x, test_y) = load_language_data(
-            metainfo=False, verbose=False,
+            metainfo=False,
+            verbose=False,
         )
     elif name == "Gutenberg":
         (train_x, train_y), (test_x, test_y) = load_gutenberg()
@@ -93,7 +94,10 @@ def process_torch_dataset(name, location, verbose=True, return_data=False):
 
     # split train data into train and valid
     train_x, valid_x, train_y, valid_y = tts(
-        train_x, train_y, train_size=45000, test_size=15000,
+        train_x,
+        train_y,
+        train_size=45000,
+        test_size=15000,
     )
 
     # print out stats of label distribution across classes

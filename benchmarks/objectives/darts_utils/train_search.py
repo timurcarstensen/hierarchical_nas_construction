@@ -68,28 +68,42 @@ def train_search(genotype, data, seed, save_path):
     criterion = nn.CrossEntropyLoss()
     criterion = criterion.cuda()
     model = Network(
-        init_channels, CIFAR_CLASSES, layers, auxiliary=auxiliary, genotype=genotype,
+        init_channels,
+        CIFAR_CLASSES,
+        layers,
+        auxiliary=auxiliary,
+        genotype=genotype,
     )
     model = model.cuda()
     logging.info("param size = %fMB", utils.count_parameters_in_MB(model))
 
     optimizer = torch.optim.SGD(
-        model.parameters(), learning_rate, momentum=momentum, weight_decay=weight_decay,
+        model.parameters(),
+        learning_rate,
+        momentum=momentum,
+        weight_decay=weight_decay,
     )
 
     (
         train_transform,
         _,
     ) = utils._data_transforms_cifar10(  # pylint: disable=protected-access
-        cutout, cutout_length,
+        cutout,
+        cutout_length,
     )
     if dataset == "cifar100":
         train_data = dset.CIFAR100(
-            root=data, train=True, download=True, transform=train_transform,
+            root=data,
+            train=True,
+            download=True,
+            transform=train_transform,
         )
     else:
         train_data = dset.CIFAR10(
-            root=data, train=True, download=True, transform=train_transform,
+            root=data,
+            train=True,
+            download=True,
+            transform=train_transform,
         )
 
     num_train = len(train_data)
@@ -115,7 +129,9 @@ def train_search(genotype, data, seed, save_path):
     # num_keeps = [7, 4]
     # train_epochs = [2, 2] if 'debug' in args.save else [25, 25]
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, epochs, eta_min=learning_rate_min,
+        optimizer,
+        epochs,
+        eta_min=learning_rate_min,
     )
 
     valid_accs = []

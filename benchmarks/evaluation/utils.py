@@ -238,7 +238,9 @@ def get_train_val_test_loaders(
     train_transform, valid_transform = _get_transforms(dataset)
     if dataset == "fashionMNIST":
         train_data = dset.FashionMNIST(
-            root=data, download=True, transform=train_transform,
+            root=data,
+            download=True,
+            transform=train_transform,
         )
         test_data = dset.FashionMNIST(
             root=data,
@@ -289,8 +291,8 @@ def get_train_val_test_loaders(
         raise NotImplementedError
 
     elif dataset in ("addNIST", "cifarTile"):
-        train_x, train_y, valid_x, valid_y, test_x, test_y = (
-            _load_npy_data(dataset, data)
+        train_x, train_y, valid_x, valid_y, test_x, test_y = _load_npy_data(
+            dataset, data
         )
         train_dataset = HelperDataset(train_x, train_y, train_transform)
         valid_dataset = HelperDataset(valid_x, valid_y, valid_transform)
@@ -366,7 +368,8 @@ def get_optimizer(optimizer: str, model: torch.nn.Module, **optim_kwargs):
             f"PyTorch has not implemented optimizer {optimizer} yet!",
         )
     return getattr(torch.optim, optimizer)(
-        model.parameters(), **optim_kwargs,
+        model.parameters(),
+        **optim_kwargs,
     )
 
 
@@ -376,7 +379,8 @@ def get_scheduler(scheduler: str, optimizer, **scheduler_kwargs):
             f"PyTorch has not implemented scheduler {scheduler} yet!",
         )
     return getattr(torch.optim.lr_scheduler, scheduler)(
-        optimizer, **scheduler_kwargs,
+        optimizer,
+        **scheduler_kwargs,
     )
 
 

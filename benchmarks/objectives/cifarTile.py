@@ -46,7 +46,9 @@ class CifarTileObjective(Objective):
         self.data_path = data_path
         self.eval_mode = eval_mode
 
-    def __call__(self, working_directory, previous_working_director, architecture, **kwargs):
+    def __call__(
+        self, working_directory, previous_working_director, architecture, **kwargs
+    ):
         start = time.time()
 
         prepare_seed(self.seed, self.workers)
@@ -66,7 +68,9 @@ class CifarTileObjective(Objective):
 
         optimizer = get_optimizer("SGD", model, **self.optim_kwargs)
         scheduler = get_scheduler(
-            scheduler="CosineAnnealingLR", optimizer=optimizer, T_max=self.n_epochs,
+            scheduler="CosineAnnealingLR",
+            optimizer=optimizer,
+            T_max=self.n_epochs,
         )
         train_loader, valid_loader, test_loader = get_train_val_test_loaders(
             dataset=self.dataset,
@@ -120,6 +124,7 @@ class CifarTileObjective(Objective):
         )
         return train_loader
 
+
 if __name__ == "__main__":
     import argparse
 
@@ -148,7 +153,9 @@ if __name__ == "__main__":
 
     pipeline_space = {
         "architecture": NB201Spaces(
-            space="variable_multi_multi", dataset=args.dataset, adjust_params=False,
+            space="variable_multi_multi",
+            dataset=args.dataset,
+            adjust_params=False,
         ),
     }
     pipeline_space = SearchSpace(**pipeline_space)

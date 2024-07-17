@@ -21,7 +21,6 @@ from .p_utils import get_layer_metric_array
 
 @measure("plain", bn=True, mode="param")
 def compute_plain_per_weight(net, inputs, targets, mode, loss_fn, split_data=1):
-
     net.zero_grad()
     N = inputs.shape[0]
     for sp in range(split_data):

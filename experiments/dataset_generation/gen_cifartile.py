@@ -93,14 +93,20 @@ def load_cifartile_data(metainfo=False):
 
     if metainfo:
         train_x, train_y, metainfo = generate_n(
-            600, class_idx, train_class_dict, train_data,
+            600,
+            class_idx,
+            train_class_dict,
+            train_data,
         )
         test_x, test_y, _ = generate_n(100, class_idx, test_class_dict, test_data)
 
         return [train_x, train_y], [test_x, test_y], metainfo
     else:
         train_x, train_y, metainfo = generate_n(
-            60000, class_idx, train_class_dict, train_data,
+            60000,
+            class_idx,
+            train_class_dict,
+            train_data,
         )
         test_x, test_y, _ = generate_n(10000, class_idx, test_class_dict, test_data)
 

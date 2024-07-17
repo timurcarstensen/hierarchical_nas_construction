@@ -24,7 +24,11 @@ class Architect:
         )
 
     def _compute_unrolled_model(
-        self, input, target, eta, network_optimizer,
+        self,
+        input,
+        target,
+        eta,
+        network_optimizer,
     ):
         loss = self.model._loss(input, target)
         theta = _concat(self.model.parameters()).data
@@ -33,7 +37,7 @@ class Architect:
                 network_optimizer.state[v]["momentum_buffer"]
                 for v in self.model.parameters()
             ).mul_(self.network_momentum)
-        except:
+        except:  # noqa: E722
             moment = torch.zeros_like(theta)
         dtheta = (
             _concat(
@@ -92,7 +96,10 @@ class Architect:
         network_optimizer,
     ):
         unrolled_model = self._compute_unrolled_model(
-            input_train, target_train, eta, network_optimizer,
+            input_train,
+            target_train,
+            eta,
+            network_optimizer,
         )
         unrolled_loss = unrolled_model._loss(input_valid, target_valid)
 
@@ -100,7 +107,9 @@ class Architect:
         dalpha = [v.grad for v in unrolled_model.arch_parameters()]
         vector = [v.grad.data for v in unrolled_model.parameters()]
         implicit_grads = self._hessian_vector_product(
-            vector, input_train, target_train,
+            vector,
+            input_train,
+            target_train,
         )
 
         for g, ig in zip(dalpha, implicit_grads, strict=False):

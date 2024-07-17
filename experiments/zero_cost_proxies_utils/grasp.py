@@ -41,7 +41,14 @@ def replace_hardswish(base_module: nn.Module):
 
 @measure("grasp", bn=True, mode="param")
 def compute_grasp_per_weight(
-    net, inputs, targets, mode, loss_fn, T=1, num_iters=1, split_data=1,
+    net,
+    inputs,
+    targets,
+    mode,
+    loss_fn,
+    T=1,
+    num_iters=1,
+    split_data=1,
 ):
     net = replace_hardswish(net)
 

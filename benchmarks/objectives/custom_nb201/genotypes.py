@@ -22,15 +22,21 @@ def get_combination(space, num):
 
 class Structure:
     def __init__(self, genotype):
-        assert isinstance(genotype, list | tuple), f"invalid class of genotype : {type(genotype)}"
+        assert isinstance(
+            genotype, list | tuple
+        ), f"invalid class of genotype : {type(genotype)}"
         self.node_num = len(genotype) + 1
         self.nodes = []
         self.node_N = []
         for idx, node_info in enumerate(genotype):
-            assert isinstance(node_info, list | tuple), f"invalid class of node_info : {type(node_info)}"
+            assert isinstance(
+                node_info, list | tuple
+            ), f"invalid class of node_info : {type(node_info)}"
             assert len(node_info) >= 1, f"invalid length : {len(node_info)}"
             for node_in in node_info:
-                assert isinstance(node_in, list | tuple), f"invalid class of in-node : {type(node_in)}"
+                assert isinstance(
+                    node_in, list | tuple
+                ), f"invalid class of in-node : {type(node_in)}"
                 assert (
                     len(node_in) == 2 and node_in[1] <= idx
                 ), f"invalid in-node : {node_in}"
@@ -107,7 +113,9 @@ class Structure:
 
     def __repr__(self):
         return "{name}({node_num} nodes with {node_info})".format(
-            name=self.__class__.__name__, node_info=self.tostr(), **self.__dict__,
+            name=self.__class__.__name__,
+            node_info=self.tostr(),
+            **self.__dict__,
         )
 
     def __len__(self):
@@ -153,7 +161,9 @@ class Structure:
 
     @staticmethod
     def gen_all(search_space, num, return_ori):
-        assert isinstance(search_space, list | tuple), f"invalid class of search-space : {type(search_space)}"
+        assert isinstance(
+            search_space, list | tuple
+        ), f"invalid class of search-space : {type(search_space)}"
         assert (
             num >= 2
         ), f"There should be at least two nodes in a neural cell instead of {num}"

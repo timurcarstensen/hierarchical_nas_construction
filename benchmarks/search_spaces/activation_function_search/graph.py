@@ -25,7 +25,6 @@ DIR_PATH = Path(os.path.dirname(os.path.realpath(__file__)))
 PRIMITIVES = {
     "UnaryTopo": partial(topos.LinearNEdge, number_of_edges=1),
     "BinaryTopo": BinaryTopo,
-
     # unary ops
     "id": UnaryOp.Identity(),
     "neg": UnaryOp.Negate(),
@@ -52,7 +51,6 @@ PRIMITIVES = {
     "gaussian": UnaryOp.Gaussian(),
     "erf": UnaryOp.Erf(),
     "const": UnaryOp.Constant,
-
     # binary ops
     "add": BinaryOp.Addition(),
     "multi": BinaryOp.Multiplication(),
@@ -66,13 +64,26 @@ PRIMITIVES = {
     "wavg": BinaryOp.WeightedAvg,
 }
 
+
 def set_comb_op(node, **kwargs):
     node[1]["comb_op"] = Stacking()
 
-pytorch_activation_functions = [act[1] for act in inspect.getmembers(nn.modules.activation, inspect.isclass) if not (act[1] == nn.Module or act[1] == torch.Tensor or act[1] == nn.Parameter)]
 
-def build(activation_function: Graph, base_architecture: str = "resnet20", num_classes: int = 10):
-    def replace_activation_functions(base_module: nn.Module, activation_function: Graph, channels: int = -1):
+pytorch_activation_functions = [
+    act[1]
+    for act in inspect.getmembers(nn.modules.activation, inspect.isclass)
+    if not (act[1] == nn.Module or act[1] == torch.Tensor or act[1] == nn.Parameter)
+]
+
+
+def build(
+    activation_function: Graph,
+    base_architecture: str = "resnet20",
+    num_classes: int = 10,
+):
+    def replace_activation_functions(
+        base_module: nn.Module, activation_function: Graph, channels: int = -1
+    ):
         for name, module in base_module.named_children():
             if hasattr(module, "out_channels") and module.out_channels > 0:
                 channels = module.out_channels
@@ -89,37 +100,57 @@ def build(activation_function: Graph, base_architecture: str = "resnet20", num_c
                 activation_function_copied = activation_function_copied._to_pytorch()  # pylint: disable=protected-access
                 setattr(base_module, name, activation_function_copied)
             elif isinstance(module, nn.Module):
-                new_module = replace_activation_functions(base_module=module, activation_function=activation_function, channels=channels)
+                new_module = replace_activation_functions(
+                    base_module=module,
+                    activation_function=activation_function,
+                    channels=channels,
+                )
                 setattr(base_module, name, new_module)
         return base_module
-
 
     if hasattr(cifar_models, base_architecture):
         base_model = getattr(cifar_models, base_architecture)(num_classes=num_classes)
     elif hasattr(models, base_architecture):
-        base_model = getattr(models, base_architecture)(pretrained=False, num_classes=num_classes)
+        base_model = getattr(models, base_architecture)(
+            pretrained=False, num_classes=num_classes
+        )
     else:
         raise NotImplementedError(f"Model {base_architecture} is not implemented!")
 
     # set stacking as combo op
     activation_function.update_nodes(
         update_func=lambda node, in_edges, out_edges: set_comb_op(
-            node, a=in_edges, b=out_edges,
+            node,
+            a=in_edges,
+            b=out_edges,
         ),
         single_instances=False,
     )
 
-    return replace_activation_functions(base_module=base_model, activation_function=activation_function)
+    return replace_activation_functions(
+        base_module=base_model, activation_function=activation_function
+    )
 
 
 class ActivationSpace:
-    def __new__(cls, base_architecture:str="resnet20", dataset: str ="cifar10", return_graph_per_hierarchy: bool = True):
-        assert hasattr(cifar_models, base_architecture) or hasattr(models, base_architecture)
+    def __new__(
+        cls,
+        base_architecture: str = "resnet20",
+        dataset: str = "cifar10",
+        return_graph_per_hierarchy: bool = True,
+    ):
+        assert hasattr(cifar_models, base_architecture) or hasattr(
+            models, base_architecture
+        )
 
         if dataset == "cifar10":
-            build_fn = partial(build, base_architecture=base_architecture, num_classes=10)
+            build_fn = partial(
+                build, base_architecture=base_architecture, num_classes=10
+            )
         elif dataset == "cifar100":
-            build_fn = partial(build, base_architecture=base_architecture, num_classes=100)
+            build_fn = partial(
+                build, base_architecture=base_architecture, num_classes=100
+            )
         else:
             raise NotImplementedError(f"Dataset {dataset} is not supported")
 
@@ -141,8 +172,8 @@ class ActivationSpace:
         with open(Path(DIR_PATH) / grammar_file) as f:
             return f.read()
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     from neps.search_spaces.search_space import SearchSpace
 
     pipeline_space = {
@@ -150,8 +181,10 @@ if __name__ == "__main__":
     }
     pipeline_space = SearchSpace(**pipeline_space)
 
-    pipeline_space.load({
-        "architecture": "(L2 UnaryTopo (L1 UnaryTopo (umax)))",
-    })
+    pipeline_space.load(
+        {
+            "architecture": "(L2 UnaryTopo (L1 UnaryTopo (umax)))",
+        }
+    )
 
     model = pipeline_space.hyperparameters["architecture"].to_pytorch()

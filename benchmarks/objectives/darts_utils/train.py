@@ -89,29 +89,48 @@ def train_evaluation(genotype, data, seed, save_path):
         train_transform,
         valid_transform,
     ) = utils._data_transforms_cifar10(  # pylint: disable=protected-access
-        cutout, cutout_length,
+        cutout,
+        cutout_length,
     )
     if dataset == "cifar100":
         train_data = dset.CIFAR100(
-            root=data, train=True, download=True, transform=train_transform,
+            root=data,
+            train=True,
+            download=True,
+            transform=train_transform,
         )
         valid_data = dset.CIFAR100(
-            root=data, train=False, download=True, transform=valid_transform,
+            root=data,
+            train=False,
+            download=True,
+            transform=valid_transform,
         )
     else:
         train_data = dset.CIFAR10(
-            root=data, train=True, download=True, transform=train_transform,
+            root=data,
+            train=True,
+            download=True,
+            transform=train_transform,
         )
         valid_data = dset.CIFAR10(
-            root=data, train=False, download=True, transform=valid_transform,
+            root=data,
+            train=False,
+            download=True,
+            transform=valid_transform,
         )
 
     train_queue = torch.utils.data.DataLoader(
-        train_data, batch_size=batch_size, shuffle=True, pin_memory=True,
+        train_data,
+        batch_size=batch_size,
+        shuffle=True,
+        pin_memory=True,
     )
 
     valid_queue = torch.utils.data.DataLoader(
-        valid_data, batch_size=batch_size, shuffle=False, pin_memory=True,
+        valid_data,
+        batch_size=batch_size,
+        shuffle=False,
+        pin_memory=True,
     )
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, float(epochs))

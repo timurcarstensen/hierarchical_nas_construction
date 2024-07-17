@@ -131,7 +131,9 @@ def darts_constraint():
                 for i1_edge1, i1_edge2 in itertools.combinations("12", 2):
                     for i2_edge1, i2_edge2 in itertools.combinations("123", 2):
                         for i3_edge1, i3_edge2 in itertools.combinations("1234", 2):
-                            for i4_edge1, i4_edge2 in itertools.combinations("12345", 2):
+                            for i4_edge1, i4_edge2 in itertools.combinations(
+                                "12345", 2
+                            ):
                                 in_edges = [
                                     i1_edge1,
                                     i1_edge2,
@@ -160,7 +162,10 @@ def darts_constraint():
 
         @staticmethod
         def mutate_not_allowed_productions(
-            nonterminal: str, before: str, after: str, possible_productions: list,
+            nonterminal: str,
+            before: str,
+            after: str,
+            possible_productions: list,
         ):
             if "IN" not in nonterminal:
                 return []
@@ -181,7 +186,6 @@ def darts_constraint():
 
 
 if __name__ == "__main__":
-
     from hierarchical_nas_benchmarks.search_spaces.darts_cnn.genotypes import (
         DrNAS_cifar10,
         Genotype,
@@ -228,7 +232,10 @@ if __name__ == "__main__":
     plot_from_graph(hp_values["graphs"][1], DIR_PATH / "own_drnas_reduce")
 
     genotype = Genotype(
-        normal=normal, normal_concat=range(2, 6), reduce=reduce, reduce_concat=range(2, 6),
+        normal=normal,
+        normal_concat=range(2, 6),
+        reduce=reduce,
+        reduce_concat=range(2, 6),
     )
     plot(genotype=genotype.normal, filename=DIR_PATH / "drnas_normal")
     plot(genotype=genotype.reduce, filename=DIR_PATH / "drnas_reduce")
@@ -245,10 +252,17 @@ if __name__ == "__main__":
     normal = pipeline_space.hyperparameters["normal"].to_pytorch()
     reduce = pipeline_space.hyperparameters["reduce"].to_pytorch()
     genotype = Genotype(
-        normal=normal, normal_concat=range(2, 6), reduce=reduce, reduce_concat=range(2, 6),
+        normal=normal,
+        normal_concat=range(2, 6),
+        reduce=reduce,
+        reduce_concat=range(2, 6),
     )
     plot(genotype=genotype.normal, filename=DIR_PATH / "bananas")
 
     model = NetworkCIFAR(
-        C=36, num_classes=10, layers=20, auxiliary=True, genotype=genotype,
+        C=36,
+        num_classes=10,
+        layers=20,
+        auxiliary=True,
+        genotype=genotype,
     )

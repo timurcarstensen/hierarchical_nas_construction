@@ -36,7 +36,9 @@ class AddNISTObjective(Objective):
         if self.eval_mode:
             self.n_epochs = 64
 
-    def __call__(self, working_directory, previous_working_director, architecture, **hp):
+    def __call__(
+        self, working_directory, previous_working_director, architecture, **hp
+    ):
         """Evaluates the architecture on the addNIST dataset."""
         start = time.time()
         if isinstance(architecture, SearchSpace):
@@ -65,7 +67,9 @@ class AddNISTObjective(Objective):
         # Define the optimizer and the scheduler
         optimizer = get_optimizer("SGD", model, **self.optim_kwargs)
         scheduler = get_scheduler(
-            scheduler="CosineAnnealingLR", optimizer=optimizer, T_max=self.n_epochs,
+            scheduler="CosineAnnealingLR",
+            optimizer=optimizer,
+            T_max=self.n_epochs,
         )
 
         # Get the data loaders

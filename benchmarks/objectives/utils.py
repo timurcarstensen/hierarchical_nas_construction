@@ -5,7 +5,6 @@ from neps.search_spaces.search_space import SearchSpace
 
 
 class ObjectiveWithAPI(Objective):
-
     def __init__(self, api) -> None:
         super().__init__(None, None, None)
         self.api = api
@@ -15,7 +14,8 @@ class ObjectiveWithAPI(Objective):
             graph = list(architecture.hyperparameters.values())
             if len(graph) != 1:
                 raise Exception(
-                    "Only one hyperparameter is allowed for this objective!")
+                    "Only one hyperparameter is allowed for this objective!"
+                )
             _config = graph[0].get_model_for_evaluation()
         else:
             _config = architecture

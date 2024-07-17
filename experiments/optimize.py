@@ -73,11 +73,13 @@ ObjectiveMapping = {
     "nb201_cifar10": partial(NB201Pipeline, dataset="cifar10"),
     "nb201_cifar100": partial(NB201Pipeline, dataset="cifar100"),
     "nb201_ImageNet16-120": partial(
-        NB201Pipeline, dataset="ImageNet16-120",
+        NB201Pipeline,
+        dataset="ImageNet16-120",
     ),
     "act_cifar10": partial(CIFAR10ActivationObjective, dataset="cifar10"),
     "act_cifar100": partial(
-        CIFAR10ActivationObjective, dataset="cifar100",
+        CIFAR10ActivationObjective,
+        dataset="cifar100",
     ),
     "darts": DARTSCnn,
     "debug": run_debug_pipeline,
@@ -102,13 +104,11 @@ def main(cfg: DictConfig):
         working_directory += f"_{cfg.experiment.pool_strategy}"
         working_directory += f"_pool{cfg.experiment.pool_size}"
     working_directory = os.path.join(
-        working_directory, f"{cfg.experiment.seed}",
+        working_directory,
+        f"{cfg.experiment.seed}",
     )
 
-    if (
-        "nb201_" in cfg.experiment.objective
-        or "act_" in cfg.experiment.objective
-    ):
+    if "nb201_" in cfg.experiment.objective or "act_" in cfg.experiment.objective:
         # Gets the run pipeline and calls it with the given arguments
         run_pipeline_fn = ObjectiveMapping[cfg.experiment.objective](
             data_path=data_path,
@@ -118,9 +118,7 @@ def main(cfg: DictConfig):
 
         # Gets the dataset from the objective name
         idx = cfg.experiment.search_space.find("_")
-        dataset = cfg.experiment.objective[
-            cfg.experiment.objective.find("_") + 1 :
-        ]
+        dataset = cfg.experiment.objective[cfg.experiment.objective.find("_") + 1 :]
         # TODO: this spits out nb20 for nb201
         search_space_key = cfg.experiment.search_space[:idx]
 
@@ -150,9 +148,7 @@ def main(cfg: DictConfig):
 
             # Loads the pipeline space from the identifier
             pipeline_space.load_from({"architecture": identifier})
-            model = pipeline_space.hyperparameters[
-                "architecture"
-            ].to_pytorch()
+            model = pipeline_space.hyperparameters["architecture"].to_pytorch()
 
             # check whether the model takes the correct input shape
             if dataset in ["cifar10", "cifar100"]:
@@ -166,13 +162,12 @@ def main(cfg: DictConfig):
             else:
                 raise NotImplementedError
 
-            cfg.experiment.adjust_params = sum(
-                p.numel() for p in model.parameters()
-            )
+            cfg.experiment.adjust_params = sum(p.numel() for p in model.parameters())
 
-        return_graph_per_hierarchy = (
-            cfg.experiment.surrogate_model
-            in ("gpwl_hierarchical", "gpwl", "gp_nasbot")
+        return_graph_per_hierarchy = cfg.experiment.surrogate_model in (
+            "gpwl_hierarchical",
+            "gpwl",
+            "gp_nasbot",
         )
         if "nb201_" in cfg.experiment.objective:
             search_space = SearchSpaceMapping[search_space_key](
@@ -201,19 +196,19 @@ def main(cfg: DictConfig):
             "reduce": SearchSpaceMapping["darts"](),
         }
         cfg.experiment.pool_strategy = partial(
-            EvolutionSampler, p_crossover=0.0, patience=10,
+            EvolutionSampler,
+            p_crossover=0.0,
+            patience=10,
         )
     # run the debug pipeline
     elif cfg.experiment.objective == "debug":
         run_pipeline_fn = ObjectiveMapping[cfg.experiment.objective]
         idx = cfg.experiment.search_space.find("_")
-        dataset = cfg.experiment.objective[
-            cfg.experiment.objective.find("_") + 1 :
-        ]
+        dataset = cfg.experiment.objective[cfg.experiment.objective.find("_") + 1 :]
 
-        search_space = SearchSpaceMapping[
-            cfg.experiment.search_space[:idx]
-        ](space=cfg.experiment.search_space[idx + 1 :], dataset="cifar10")
+        search_space = SearchSpaceMapping[cfg.experiment.search_space[:idx]](
+            space=cfg.experiment.search_space[idx + 1 :], dataset="cifar10"
+        )
     else:
         raise NotImplementedError(
             f"Objective {cfg.experiment.objective} not implemented",
@@ -244,9 +239,7 @@ def main(cfg: DictConfig):
                 "vectorial_features": None,
             }
         case "gpwl":
-            hierarchy_considered = (
-                None if cfg.experiment.objective == "darts" else []
-            )
+            hierarchy_considered = None if cfg.experiment.objective == "darts" else []
             if cfg.experiment.objective == "darts":
                 graph_kernels = ["wl", "wl"]
                 wl_h = [2, 2]
@@ -274,10 +267,7 @@ def main(cfg: DictConfig):
         case "gp_nasbot":
             hierarchy_considered = []
             graph_kernels = ["nasbot"]
-            if (
-                cfg.experiment.search_space
-                == "nb201_variable_multi_multi"
-            ):
+            if cfg.experiment.search_space == "nb201_variable_multi_multi":
                 include_op_list = [
                     "id",
                     "zero",
@@ -331,17 +321,14 @@ def main(cfg: DictConfig):
     logging.basicConfig(level=logging.INFO)
 
     if not isinstance(search_space, dict) and not isinstance(
-        search_space, SearchSpace,
+        search_space,
+        SearchSpace,
     ):
         search_space = {"architecture": search_space}
 
     match cfg.experiment.searcher:
         case "bayesian_optimization":
-            patience = (
-                10
-                if "fixed_1_none" in cfg.experiment.search_space
-                else 100
-            )
+            patience = 10 if "fixed_1_none" in cfg.experiment.search_space else 100
             neps.run(
                 run_pipeline=run_pipeline_fn,
                 pipeline_space=search_space,

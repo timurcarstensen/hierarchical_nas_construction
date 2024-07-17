@@ -49,7 +49,11 @@ def eval_score(jacob, labels=None):  # pylint: disable=unused-argument
 
 @measure("jacov", bn=True)
 def compute_jacob_cov(
-    net, inputs, targets, split_data=1, loss_fn=None,  # pylint: disable=unused-argument
+    net,
+    inputs,
+    targets,
+    split_data=1,
+    loss_fn=None,  # pylint: disable=unused-argument
 ):
     try:
         # Compute gradients (but don't apply them)

@@ -97,7 +97,9 @@ def build(
     out_channels_factor = 4  # 64
 
     def _create_architecture(
-        _graph: Graph, _channels: int, return_model: bool = False,
+        _graph: Graph,
+        _channels: int,
+        return_model: bool = False,
     ):
         in_node = next(n for n in _graph.nodes if _graph.in_degree(n) == 0)
         for n in nx.topological_sort(_graph):
@@ -185,9 +187,7 @@ def constraints(
             if d is None:
                 continue
             if (
-                d.count("(") == 1
-                and d.count(")") == 1
-                and none_operation in d
+                d.count("(") == 1 and d.count(")") == 1 and none_operation in d
             ) or none_operation == d:
                 u, v = edge_list[topology][i]
                 current_pred_succ_mapping["pred"][v].remove(u)
@@ -228,9 +228,7 @@ def constraints(
         _constraints,
         edge_list=edge_list,
         src_sink_map=src_sink_map,
-        pred_succ_mapping={
-            k: _compute_pred_succ(v) for k, v in edge_list.items()
-        },
+        pred_succ_mapping={k: _compute_pred_succ(v) for k, v in edge_list.items()},
         none_operation=none_operation,
     )
 
@@ -249,8 +247,7 @@ class NB201Spaces:
                 "cell.cfg",
             ]
             productions = [
-                cls._read_grammar(grammar_file)
-                for grammar_file in grammar_files
+                cls._read_grammar(grammar_file) for grammar_file in grammar_files
             ]
             repetitive_kwargs = {
                 "fixed_macro_grammar": True,
@@ -266,10 +263,7 @@ class NB201Spaces:
             ]
             productions = cls._filter_productions(
                 "".join(
-                    [
-                        cls._read_grammar(grammar_file)
-                        for grammar_file in grammar_files
-                    ],
+                    [cls._read_grammar(grammar_file) for grammar_file in grammar_files],
                 ),
             )
         else:
@@ -370,18 +364,14 @@ if __name__ == "__main__":
         pipeline_space = SearchSpace(**pipeline_space)
 
         sampled_pipeline_space = pipeline_space.sample(patience=3)
-        _ = sampled_pipeline_space.hyperparameters[
-            "architecture"
-        ].to_pytorch()
+        _ = sampled_pipeline_space.hyperparameters["architecture"].to_pytorch()
         mutated_sampled_pipeline = sampled_pipeline_space.mutate()
         sampled_pipeline_space2 = pipeline_space.sample(patience=3)
         crossover_sampled_pipeline = sampled_pipeline_space.crossover(
             sampled_pipeline_space2,
         )
 
-        value = sampled_pipeline_space.hyperparameters[
-            "architecture"
-        ].value
+        value = sampled_pipeline_space.hyperparameters["architecture"].value
         if len(value) == 1:
             value = value[0]
         hierarchy_graphs = value[1]
@@ -389,24 +379,21 @@ if __name__ == "__main__":
     # test ops
     pipeline_space = {
         "architecture": NB201Spaces(
-            space="variable_multi_multi", dataset="cifar10",
+            space="variable_multi_multi",
+            dataset="cifar10",
         ),
     }
     pipeline_space = SearchSpace(**pipeline_space)
     pipeline_space = pipeline_space.sample()
     _ = run_pipeline(pipeline_space.hyperparameters["architecture"])
     sampled_pipeline_space = pipeline_space.sample()
-    _ = sampled_pipeline_space.hyperparameters[
-        "architecture"
-    ].to_pytorch()
+    _ = sampled_pipeline_space.hyperparameters["architecture"].to_pytorch()
     sampled_pipeline_space.mutate()
     pipeline_space2 = pipeline_space.copy()
     sampled_pipeline_space2 = pipeline_space2.sample()
     sampled_pipeline_space.crossover(sampled_pipeline_space2)
 
-    hierarchy_considered = NB201_HIERARCHIES_CONSIDERED[
-        "variable_multi_multi"
-    ]
+    hierarchy_considered = NB201_HIERARCHIES_CONSIDERED["variable_multi_multi"]
     graph_kernels = ["wl"] * (len(hierarchy_considered) + 1)
     wl_h = [2, 1] + [2] * (len(hierarchy_considered) - 1)
     graph_kernels = [

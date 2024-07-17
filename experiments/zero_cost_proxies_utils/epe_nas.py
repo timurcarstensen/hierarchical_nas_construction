@@ -32,7 +32,12 @@ from . import measure
 
 
 def get_batch_jacobian(
-    net, x, target, to, device, args=None,
+    net,
+    x,
+    target,
+    to,
+    device,
+    args=None,
 ):  # pylint: disable=unused-argument
     net.zero_grad()
 
@@ -73,7 +78,6 @@ def eval_score_perclass(jacob, labels=None, n_classes=10):
     score = 0
     ind_corr_matrix_score_keys = ind_corr_matrix_score.keys()
     if n_classes <= 100:
-
         for c in ind_corr_matrix_score_keys:
             # B)
             score += np.absolute(ind_corr_matrix_score[c])
@@ -81,7 +85,9 @@ def eval_score_perclass(jacob, labels=None, n_classes=10):
         for c in ind_corr_matrix_score_keys:
             # A)
             for cj in ind_corr_matrix_score_keys:
-                score += np.absolute(ind_corr_matrix_score[c] - ind_corr_matrix_score[cj])
+                score += np.absolute(
+                    ind_corr_matrix_score[c] - ind_corr_matrix_score[cj]
+                )
 
         if len(ind_corr_matrix_score_keys) > 0:
             # should divide by number of classes seen
@@ -92,15 +98,22 @@ def eval_score_perclass(jacob, labels=None, n_classes=10):
 
 @measure("epe_nas")
 def compute_epe_score(
-    net, inputs, targets, loss_fn, split_data=1,
+    net,
+    inputs,
+    targets,
+    loss_fn,
+    split_data=1,
 ):  # pylint: disable=unused-argument
     jacobs = []
     labels = []
 
     try:
-
         jacobs_batch, target, n_classes = get_batch_jacobian(
-            net, inputs, targets, None, None,
+            net,
+            inputs,
+            targets,
+            None,
+            None,
         )
         jacobs.append(jacobs_batch.reshape(jacobs_batch.size(0), -1).cpu().numpy())
 

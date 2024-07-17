@@ -69,7 +69,10 @@ class AuxiliaryHeadCIFAR(nn.Module):
         self.features = nn.Sequential(
             nn.ReLU(inplace=True),
             nn.AvgPool2d(
-                5, stride=3, padding=0, count_include_pad=False,
+                5,
+                stride=3,
+                padding=0,
+                count_include_pad=False,
             ),  # image size = 2 x 2
             nn.Conv2d(C, 128, 1, bias=False),
             nn.BatchNorm2d(128),
@@ -117,7 +120,8 @@ class NetworkCIFAR(nn.Module):
         stem_multiplier = 3
         C_curr = stem_multiplier * C
         self.stem = nn.Sequential(
-            nn.Conv2d(3, C_curr, 3, padding=1, bias=False), nn.BatchNorm2d(C_curr),
+            nn.Conv2d(3, C_curr, 3, padding=1, bias=False),
+            nn.BatchNorm2d(C_curr),
         )
 
         C_prev_prev, C_prev, C_curr = C_curr, C_curr, C
@@ -129,7 +133,9 @@ class NetworkCIFAR(nn.Module):
                 reduction = True
             else:
                 reduction = False
-            cell = Cell(genotype, C_prev_prev, C_prev, C_curr, reduction, reduction_prev)
+            cell = Cell(
+                genotype, C_prev_prev, C_prev, C_curr, reduction, reduction_prev
+            )
             reduction_prev = reduction
             self.cells += [cell]
             C_prev_prev, C_prev = C_prev, cell.multiplier * C_curr
@@ -184,7 +190,9 @@ class NetworkImageNet(nn.Module):
                 reduction = True
             else:
                 reduction = False
-            cell = Cell(genotype, C_prev_prev, C_prev, C_curr, reduction, reduction_prev)
+            cell = Cell(
+                genotype, C_prev_prev, C_prev, C_curr, reduction, reduction_prev
+            )
             reduction_prev = reduction
             self.cells += [cell]
             C_prev_prev, C_prev = C_prev, cell.multiplier * C_curr

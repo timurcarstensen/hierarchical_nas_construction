@@ -25,9 +25,12 @@ from . import measure
 
 @measure("nwot", bn=True)
 def compute_nwot(
-    net, inputs, targets, split_data=1, loss_fn=None,
+    net,
+    inputs,
+    targets,
+    split_data=1,
+    loss_fn=None,
 ):  # pylint: disable=unused-argument
-
     batch_size = len(targets)
 
     def counting_forward_hook(module, inp, out):  # pylint: disable=unused-argument
@@ -38,7 +41,9 @@ def compute_nwot(
         net.K = net.K + K.cpu().numpy() + K2.cpu().numpy()  # hamming distance
 
     def counting_backward_hook(
-        module, inp, out,
+        module,
+        inp,
+        out,
     ):  # pylint: disable=unused-argument,unused-variable
         module.visited_backwards = True
 

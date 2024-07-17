@@ -6,9 +6,12 @@ from sklearn.model_selection import train_test_split as tts
 
 def get_lang(lang):
     dump = subprocess.Popen(
-        ("aspell", "-d", lang, "dump", "master"), stdout=subprocess.PIPE,
+        ("aspell", "-d", lang, "dump", "master"),
+        stdout=subprocess.PIPE,
     )
-    expand = subprocess.check_output(("aspell", "-l", lang, "expand"), stdin=dump.stdout)
+    expand = subprocess.check_output(
+        ("aspell", "-l", lang, "expand"), stdin=dump.stdout
+    )
     dump.wait()
     word_exp = [x.split() for x in expand.decode("utf-8").split("\n")]
     return [word for words in word_exp for word in words]
@@ -87,10 +90,20 @@ def test_train_split(lang_dict, return_metainfo=False):
     n_test = 1000
     for lang, (train, test) in lang_splits.items():
         train_groups = list(
-            set(zip(*[np.random.choice(train, n_train + 500) for _ in range(n)], strict=False)),
+            set(
+                zip(
+                    *[np.random.choice(train, n_train + 500) for _ in range(n)],
+                    strict=False,
+                )
+            ),
         )[:n_train]
         test_groups = list(
-            set(zip(*[np.random.choice(test, n_test + 500) for _ in range(n)], strict=False)),
+            set(
+                zip(
+                    *[np.random.choice(test, n_test + 500) for _ in range(n)],
+                    strict=False,
+                )
+            ),
         )[:n_test]
         lang_groups[lang] = train_groups, test_groups
 

@@ -25,7 +25,13 @@ from .p_utils import get_layer_metric_array, reshape_elements
 
 def fisher_forward_conv2d(self, x):
     x = F.conv2d(
-        x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups,
+        x,
+        self.weight,
+        self.bias,
+        self.stride,
+        self.padding,
+        self.dilation,
+        self.groups,
     )
     # intercept and store the activations after passing through 'hooked' identity op
     self.act = self.dummy(x)
@@ -40,7 +46,6 @@ def fisher_forward_linear(self, x):
 
 @measure("fisher", bn=True, mode="channel")
 def compute_fisher_per_weight(net, inputs, targets, loss_fn, mode, split_data=1):
-
     device = inputs.device
 
     if mode == "param":
@@ -63,7 +68,9 @@ def compute_fisher_per_weight(net, inputs, targets, loss_fn, mode, split_data=1)
             # function to call during backward pass (hooked on identity op at output of layer)
             def hook_factory(layer):
                 def hook(
-                    module, grad_input, grad_output,
+                    module,
+                    grad_input,
+                    grad_output,
                 ):  # pylint: disable=unused-argument
                     act = layer.act.detach()
                     grad = grad_output[0].detach()
@@ -76,9 +83,7 @@ def compute_fisher_per_weight(net, inputs, targets, loss_fn, mode, split_data=1)
                         layer.fisher = del_k
                     else:
                         layer.fisher += del_k
-                    del (
-                        layer.act
-                    )  # without deleting this, a nasty memory leak occurs! related: https://discuss.pytorch.org/t/memory-leak-when-using-forward-hook-and-backward-hook-simultaneously/27555
+                    del layer.act  # without deleting this, a nasty memory leak occurs! related: https://discuss.pytorch.org/t/memory-leak-when-using-forward-hook-and-backward-hook-simultaneously/27555
 
                 return hook
 

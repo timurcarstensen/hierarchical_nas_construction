@@ -20,18 +20,30 @@ Reference:
 If you use this implementation in you work, please don't forget to mention the
 author, Yerlan Idelbayev.
 """
+
 import math
 
 import torch.nn.functional as F
 from torch import nn
 from torch.nn import init
 
-__all__ = ["ResNet", "resnet20", "resnet32", "resnet44", "resnet56", "resnet110", "resnet1202", "resnet164"]
+__all__ = [
+    "ResNet",
+    "resnet20",
+    "resnet32",
+    "resnet44",
+    "resnet56",
+    "resnet110",
+    "resnet1202",
+    "resnet164",
+]
+
 
 def _weights_init(m):
-    #print(classname)
+    # print(classname)
     if isinstance(m, nn.Linear | nn.Conv2d):
         init.kaiming_normal_(m.weight)
+
 
 class LambdaLayer(nn.Module):
     def __init__(self, lambd):
@@ -47,10 +59,14 @@ class BasicBlock(nn.Module):
 
     def __init__(self, in_planes, planes, stride=1, option="A"):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(
+            in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False
+        )
         self.bn1 = nn.BatchNorm2d(planes)
         self.act1 = nn.ReLU()
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(
+            planes, planes, kernel_size=3, stride=1, padding=1, bias=False
+        )
         self.bn2 = nn.BatchNorm2d(planes)
         self.act2 = nn.ReLU()
 
@@ -60,12 +76,24 @@ class BasicBlock(nn.Module):
                 """
                 For CIFAR10 ResNet paper uses option A.
                 """
-                self.shortcut = LambdaLayer(lambda x:
-                                            F.pad(x[:, :, ::2, ::2], (0, 0, 0, 0, planes//4, planes//4), "constant", 0))
+                self.shortcut = LambdaLayer(
+                    lambda x: F.pad(
+                        x[:, :, ::2, ::2],
+                        (0, 0, 0, 0, planes // 4, planes // 4),
+                        "constant",
+                        0,
+                    )
+                )
             elif option == "B":
                 self.shortcut = nn.Sequential(
-                     nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False),
-                     nn.BatchNorm2d(self.expansion * planes),
+                    nn.Conv2d(
+                        in_planes,
+                        self.expansion * planes,
+                        kernel_size=1,
+                        stride=stride,
+                        bias=False,
+                    ),
+                    nn.BatchNorm2d(self.expansion * planes),
                 )
 
     def forward(self, x):
@@ -91,7 +119,7 @@ class ResNet(nn.Module):
         self.apply(_weights_init)
 
     def _make_layer(self, block, planes, num_blocks, stride):
-        strides = [stride] + [1]*(num_blocks-1)
+        strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
             layers.append(block(self.in_planes, planes, stride))
@@ -132,6 +160,7 @@ def resnet110(num_classes: int = 10):
 def resnet1202(num_classes: int = 10):
     return ResNet(BasicBlock, [200, 200, 200], num_classes=num_classes)
 
+
 ## the model definition
 # see HeKaiming's implementation using torch:
 # https://github.com/KaimingHe/resnet-1k-layers/blob/master/README.md
@@ -152,21 +181,38 @@ class Bottleneck(nn.Module):
         # conv 1x1
         self.bn1 = nn.BatchNorm2d(self.inplanes)
         self.relu1 = nn.ReLU(inplace=True)
-        self.conv1 = nn.Conv2d(self.inplanes, self.bottleneck_planes,
-                               kernel_size=1, stride=self.stride, bias=False)
+        self.conv1 = nn.Conv2d(
+            self.inplanes,
+            self.bottleneck_planes,
+            kernel_size=1,
+            stride=self.stride,
+            bias=False,
+        )
         # conv 3x3
         self.bn2 = nn.BatchNorm2d(self.bottleneck_planes)
         self.relu2 = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(self.bottleneck_planes, self.bottleneck_planes,
-                               kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(
+            self.bottleneck_planes,
+            self.bottleneck_planes,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        )
         # conv 1x1
         self.bn3 = nn.BatchNorm2d(self.bottleneck_planes)
         self.relu3 = nn.ReLU(inplace=True)
-        self.conv3 = nn.Conv2d(self.bottleneck_planes, self.outplanes, kernel_size=1,
-                               stride=1)
+        self.conv3 = nn.Conv2d(
+            self.bottleneck_planes, self.outplanes, kernel_size=1, stride=1
+        )
         if self.inplanes != self.outplanes:
-            self.shortcut = nn.Conv2d(self.inplanes, self.outplanes, kernel_size=1,
-                                      stride=self.stride, bias=False)
+            self.shortcut = nn.Conv2d(
+                self.inplanes,
+                self.outplanes,
+                kernel_size=1,
+                stride=self.stride,
+                bias=False,
+            )
         else:
             self.shortcut = None
 
@@ -196,8 +242,9 @@ class ResNet164(nn.Module):
         n = (depth - 2) // 9
         nstages = [16, 64, 128, 256]
         # one conv at the beginning (spatial size: 32x32)
-        self.conv1 = nn.Conv2d(3, nstages[0], kernel_size=3, stride=1,
-                               padding=1, bias=False)
+        self.conv1 = nn.Conv2d(
+            3, nstages[0], kernel_size=3, stride=1, padding=1, bias=False
+        )
 
         # use `block` as unit to construct res-net
         # Stage 0 (spatial size: 32x32)
@@ -220,7 +267,7 @@ class ResNet164(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.weight.data.normal_(0, math.sqrt(2.0 / n))
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
@@ -244,7 +291,6 @@ class ResNet164(nn.Module):
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
         return self.fc(x)
-
 
 
 def resnet164(num_classes: int = 10):

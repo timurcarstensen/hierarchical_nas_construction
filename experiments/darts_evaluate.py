@@ -73,7 +73,10 @@ def distill(result):
 parser = argparse.ArgumentParser("DARTS evaluation on cell-based nb201")
 parser.add_argument("--working_directory", type=str, help="where data should be saved")
 parser.add_argument(
-    "--data_path", type=str, default="datapath", help="location of the data corpus",
+    "--data_path",
+    type=str,
+    default="datapath",
+    help="location of the data corpus",
 )
 parser.add_argument("--api_path", type=str, default="", help="location of the api data")
 parser.add_argument(
@@ -94,7 +97,9 @@ args.seed = int(splits[-1])
 genotype = get_genotype(args.working_directory)
 
 run_pipeline_fn = ObjectiveMapping[dataset](
-    data_path=args.data_path, seed=args.seed, eval_mode=True,
+    data_path=args.data_path,
+    seed=args.seed,
+    eval_mode=True,
 )
 
 if hasattr(run_pipeline_fn, "set_seed"):
@@ -109,7 +114,9 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed_all(args.seed)
 
 search_space = NB201Spaces(
-    space=search_space[6:-4], dataset=dataset[6:], adjust_params=False,
+    space=search_space[6:-4],
+    dataset=dataset[6:],
+    adjust_params=False,
 )
 
 if not isinstance(search_space, dict) and not isinstance(search_space, SearchSpace):

@@ -13,7 +13,13 @@ from .cell_operations import OPS
 # Cell for NAS-Bench-201
 class InferCell(nn.Module):
     def __init__(
-        self, genotype, C_in, C_out, stride, affine=True, track_running_stats=True,
+        self,
+        genotype,
+        C_in,
+        C_out,
+        stride,
+        affine=True,
+        track_running_stats=True,
     ):
         super().__init__()
 
@@ -25,9 +31,11 @@ class InferCell(nn.Module):
             node_info = genotype[i - 1]
             cur_index = []
             cur_innod = []
-            for (op_name, op_in) in node_info:
+            for op_name, op_in in node_info:
                 if op_in == 0:
-                    layer = OPS[op_name](C_in, C_out, stride, affine, track_running_stats)
+                    layer = OPS[op_name](
+                        C_in, C_out, stride, affine, track_running_stats
+                    )
                 else:
                     layer = OPS[op_name](C_out, C_out, 1, affine, track_running_stats)
                 cur_index.append(len(self.layers))
@@ -44,8 +52,13 @@ class InferCell(nn.Module):
             **self.__dict__,
         )
         laystr = []
-        for i, (node_layers, node_innods) in enumerate(zip(self.node_IX, self.node_IN, strict=False)):
-            y = [f"I{_ii}-L{_il}" for _il, _ii in zip(node_layers, node_innods, strict=False)]
+        for i, (node_layers, node_innods) in enumerate(
+            zip(self.node_IX, self.node_IN, strict=False)
+        ):
+            y = [
+                f"I{_ii}-L{_il}"
+                for _il, _ii in zip(node_layers, node_innods, strict=False)
+            ]
             x = "{:}<-({:})".format(i + 1, ",".join(y))
             laystr.append(x)
         return (
@@ -56,7 +69,8 @@ class InferCell(nn.Module):
         nodes = [inputs]
         for node_layers, node_innods in zip(self.node_IX, self.node_IN, strict=False):
             node_feature = sum(
-                self.layers[_il](nodes[_ii]) for _il, _ii in zip(node_layers, node_innods, strict=False)
+                self.layers[_il](nodes[_ii])
+                for _il, _ii in zip(node_layers, node_innods, strict=False)
             )
             nodes.append(node_feature)
         return nodes[-1]
@@ -79,13 +93,23 @@ class NASNetInferCell(nn.Module):
         self.reduction = reduction
         if reduction_prev:
             self.preprocess0 = OPS["skip_connect"](
-                C_prev_prev, C, 2, affine, track_running_stats,
+                C_prev_prev,
+                C,
+                2,
+                affine,
+                track_running_stats,
             )
         else:
             self.preprocess0 = OPS["nor_conv_1x1"](
-                C_prev_prev, C, 1, affine, track_running_stats,
+                C_prev_prev,
+                C,
+                1,
+                affine,
+                track_running_stats,
             )
-        self.preprocess1 = OPS["nor_conv_1x1"](C_prev, C, 1, affine, track_running_stats)
+        self.preprocess1 = OPS["nor_conv_1x1"](
+            C_prev, C, 1, affine, track_running_stats
+        )
 
         if not reduction:
             nodes, concats = genotype["normal"], genotype["normal_concat"]
@@ -102,7 +126,11 @@ class NASNetInferCell(nn.Module):
                 stride = 2 if reduction and j < 2 else 1
                 node_str = f"{i + 2}<-{j}"
                 self.edges[node_str] = OPS[name](
-                    C, C, stride, affine, track_running_stats,
+                    C,
+                    C,
+                    stride,
+                    affine,
+                    track_running_stats,
                 )
 
     # [TODO] to support drop_prob in this function..
@@ -129,7 +157,10 @@ class AuxiliaryHeadCIFAR(nn.Module):
         self.features = nn.Sequential(
             nn.ReLU(inplace=True),
             nn.AvgPool2d(
-                5, stride=3, padding=0, count_include_pad=False,
+                5,
+                stride=3,
+                padding=0,
+                count_include_pad=False,
             ),  # image size = 2 x 2
             nn.Conv2d(C, 128, 1, bias=False),
             nn.BatchNorm2d(128),

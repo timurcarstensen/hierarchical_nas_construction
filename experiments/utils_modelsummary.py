@@ -23,12 +23,10 @@ https://github.com/sovrasov/flops-counter.pytorch.git
 """
 
 
-def get_model_flops(model,
-                    input_res,
-                    print_per_layer_stat=True,
-                    input_constructor=None):
-    assert type(
-        input_res) is tuple, "Please provide the size of the input image."
+def get_model_flops(
+    model, input_res, print_per_layer_stat=True, input_constructor=None
+):
+    assert type(input_res) is tuple, "Please provide the size of the input image."
     assert len(input_res) >= 3, "Input image should have 3 dimensions."
     flops_model = add_flops_counting_methods(model)
     flops_model.eval().start_flops_count()
@@ -49,8 +47,7 @@ def get_model_flops(model,
 
 
 def get_model_activation(model, input_res, input_constructor=None):
-    assert type(
-        input_res) is tuple, "Please provide the size of the input image."
+    assert type(input_res) is tuple, "Please provide the size of the input image."
     assert len(input_res) >= 3, "Input image should have 3 dimensions."
     activation_model = add_activation_counting_methods(model)
     activation_model.eval().start_activation_count()
@@ -62,18 +59,15 @@ def get_model_activation(model, input_res, input_constructor=None):
         batch = torch.FloatTensor(1, *input_res).to(device)
         _ = activation_model(batch)
 
-    activation_count, num_conv = activation_model.compute_average_activation_cost(
-    )
+    activation_count, num_conv = activation_model.compute_average_activation_cost()
     activation_model.stop_activation_count()
 
     return activation_count, num_conv
 
 
-def get_model_complexity_info(model,
-                              input_res,
-                              print_per_layer_stat=True,
-                              as_strings=True,
-                              input_constructor=None):
+def get_model_complexity_info(
+    model, input_res, print_per_layer_stat=True, as_strings=True, input_constructor=None
+):
     assert type(input_res) is tuple
     assert len(input_res) >= 3
     flops_model = add_flops_counting_methods(model)
@@ -100,19 +94,19 @@ def get_model_complexity_info(model,
 def flops_to_string(flops, units="GMac", precision=2):
     if units is None:
         if flops // 10**9 > 0:
-            return str(round(flops / 10.**9, precision)) + " GMac"
+            return str(round(flops / 10.0**9, precision)) + " GMac"
         elif flops // 10**6 > 0:
-            return str(round(flops / 10.**6, precision)) + " MMac"
+            return str(round(flops / 10.0**6, precision)) + " MMac"
         elif flops // 10**3 > 0:
-            return str(round(flops / 10.**3, precision)) + " KMac"
+            return str(round(flops / 10.0**3, precision)) + " KMac"
         else:
             return str(flops) + " Mac"
     elif units == "GMac":
-        return str(round(flops / 10.**9, precision)) + " " + units
+        return str(round(flops / 10.0**9, precision)) + " " + units
     elif units == "MMac":
-        return str(round(flops / 10.**6, precision)) + " " + units
+        return str(round(flops / 10.0**6, precision)) + " " + units
     elif units == "KMac":
-        return str(round(flops / 10.**3, precision)) + " " + units
+        return str(round(flops / 10.0**3, precision)) + " " + units
     else:
         return str(flops) + " Mac"
 
@@ -140,13 +134,15 @@ def print_model_with_flops(model, units="GMac", precision=3):
 
     def flops_repr(self):
         accumulated_flops_cost = self.accumulate_flops()
-        return ", ".join([
-            flops_to_string(accumulated_flops_cost,
-                            units=units,
-                            precision=precision),
-            f"{accumulated_flops_cost / total_flops:.3%} MACs",
-            self.original_extra_repr(),
-        ])
+        return ", ".join(
+            [
+                flops_to_string(
+                    accumulated_flops_cost, units=units, precision=precision
+                ),
+                f"{accumulated_flops_cost / total_flops:.3%} MACs",
+                self.original_extra_repr(),
+            ]
+        )
 
     def add_extra_repr(m):
         m.accumulate_flops = accumulate_flops.__get__(m)
@@ -175,14 +171,12 @@ def add_flops_counting_methods(net_main_module):
     # adding additional methods to the existing module object,
     # this is done this way so that each function has access to self object
     # embed()
-    net_main_module.start_flops_count = start_flops_count.__get__(
-        net_main_module)
-    net_main_module.stop_flops_count = stop_flops_count.__get__(
-        net_main_module)
-    net_main_module.reset_flops_count = reset_flops_count.__get__(
-        net_main_module)
+    net_main_module.start_flops_count = start_flops_count.__get__(net_main_module)
+    net_main_module.stop_flops_count = stop_flops_count.__get__(net_main_module)
+    net_main_module.reset_flops_count = reset_flops_count.__get__(net_main_module)
     net_main_module.compute_average_flops_cost = compute_average_flops_cost.__get__(
-        net_main_module)
+        net_main_module
+    )
 
     net_main_module.reset_flops_count()
     return net_main_module
@@ -234,8 +228,7 @@ def add_flops_counter_hook_function(module):
 
         if isinstance(module, nn.Conv2d | nn.Conv3d | nn.ConvTranspose2d):
             handle = module.register_forward_hook(conv_flops_counter_hook)
-        elif isinstance(module,
-                        nn.ReLU | nn.PReLU | nn.ELU | nn.LeakyReLU | nn.ReLU6):
+        elif isinstance(module, nn.ReLU | nn.PReLU | nn.ELU | nn.LeakyReLU | nn.ReLU6):
             handle = module.register_forward_hook(relu_flops_counter_hook)
         elif isinstance(module, nn.Linear):
             handle = module.register_forward_hook(linear_flops_counter_hook)
@@ -259,7 +252,20 @@ def add_flops_counter_variable_or_reset(module):
 
 # ---- Internal functions
 def is_supported_instance(module):
-    return bool(isinstance(module, nn.Conv2d | nn.ConvTranspose2d | nn.BatchNorm2d | nn.Linear | nn.ReLU | nn.PReLU | nn.ELU | nn.LeakyReLU | nn.ReLU6))
+    return bool(
+        isinstance(
+            module,
+            nn.Conv2d
+            | nn.ConvTranspose2d
+            | nn.BatchNorm2d
+            | nn.Linear
+            | nn.ReLU
+            | nn.PReLU
+            | nn.ELU
+            | nn.LeakyReLU
+            | nn.ReLU6,
+        )
+    )
 
 
 def conv_flops_counter_hook(conv_module, input, output):
@@ -275,12 +281,10 @@ def conv_flops_counter_hook(conv_module, input, output):
     groups = conv_module.groups
 
     filters_per_channel = out_channels // groups
-    conv_per_position_flops = np.prod(
-        kernel_dims) * in_channels * filters_per_channel
+    conv_per_position_flops = np.prod(kernel_dims) * in_channels * filters_per_channel
 
     active_elements_count = batch_size * np.prod(output_dims)
-    overall_conv_flops = int(conv_per_position_flops) * int(
-        active_elements_count)
+    overall_conv_flops = int(conv_per_position_flops) * int(active_elements_count)
 
     # overall_flops = overall_conv_flops
 
@@ -327,13 +331,17 @@ def add_activation_counting_methods(net_main_module):
     # this is done this way so that each function has access to self object
     # embed()
     net_main_module.start_activation_count = start_activation_count.__get__(
-        net_main_module)
+        net_main_module
+    )
     net_main_module.stop_activation_count = stop_activation_count.__get__(
-        net_main_module)
+        net_main_module
+    )
     net_main_module.reset_activation_count = reset_activation_count.__get__(
-        net_main_module)
-    net_main_module.compute_average_activation_cost = compute_average_activation_cost.__get__(
-        net_main_module)
+        net_main_module
+    )
+    net_main_module.compute_average_activation_cost = (
+        compute_average_activation_cost.__get__(net_main_module)
+    )
 
     net_main_module.reset_activation_count()
     return net_main_module
@@ -442,8 +450,18 @@ def dconv_flops_counter_hook(dconv_module, input, output):
     batch_size = input.shape[0]
     output_dims = list(output.shape[2:])
 
-    m_channels, in_channels, kernel_dim1, _, = dconv_module.weight.shape
-    out_channels, _, kernel_dim2, _, = dconv_module.projection.shape
+    (
+        m_channels,
+        in_channels,
+        kernel_dim1,
+        _,
+    ) = dconv_module.weight.shape
+    (
+        out_channels,
+        _,
+        kernel_dim2,
+        _,
+    ) = dconv_module.projection.shape
     # groups = dconv_module.groups
 
     # filters_per_channel = out_channels // groups
@@ -451,8 +469,9 @@ def dconv_flops_counter_hook(dconv_module, input, output):
     conv_per_position_flops2 = kernel_dim2**2 * out_channels * m_channels
     active_elements_count = batch_size * np.prod(output_dims)
 
-    overall_conv_flops = (conv_per_position_flops1 +
-                          conv_per_position_flops2) * active_elements_count
+    overall_conv_flops = (
+        conv_per_position_flops1 + conv_per_position_flops2
+    ) * active_elements_count
     overall_flops = overall_conv_flops
 
     dconv_module.__flops__ += int(overall_flops)

@@ -49,7 +49,9 @@ def compute_zen_score(
         for _repeat_count in range(repeat):  # pylint: disable=unused-variable
             network_weight_gaussian_init(net)
             input = torch.randn(  # pylint: disable=redefined-builtin
-                size=list(inputs.shape), device=device, dtype=dtype,
+                size=list(inputs.shape),
+                device=device,
+                dtype=dtype,
             )
             input2 = torch.randn(size=list(inputs.shape), device=device, dtype=dtype)
             mixup_input = input + mixup_gamma * input2

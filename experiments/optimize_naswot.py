@@ -68,7 +68,9 @@ class DropConnect(torch.nn.Module):
         # generate binary_tensor mask according to probability (p for 0, 1-p for 1)
         random_tensor = keep_prob
         random_tensor += torch.rand(
-            [batch_size, channel_size, 1, 1], dtype=inputs.dtype, device=inputs.device,
+            [batch_size, channel_size, 1, 1],
+            dtype=inputs.dtype,
+            device=inputs.device,
         )
         binary_tensor = torch.floor(random_tensor)
         return inputs / keep_prob * binary_tensor
@@ -110,7 +112,10 @@ parser.add_argument("--naslib", action="store_true")
 parser.add_argument("--resume", action="store_true")
 
 parser.add_argument(
-    "--score", default="hook_logdet", type=str, help="the score to evaluate",
+    "--score",
+    default="hook_logdet",
+    type=str,
+    help="the score to evaluate",
 )
 parser.add_argument("--batch_size", default=128, type=int)
 parser.add_argument("--kernel", action="store_true")
@@ -122,10 +127,16 @@ parser.add_argument(
     help="how often to repeat a single image with a batch",
 )
 parser.add_argument(
-    "--augtype", default="none", type=str, help="which perturbations to use",
+    "--augtype",
+    default="none",
+    type=str,
+    help="which perturbations to use",
 )
 parser.add_argument(
-    "--sigma", default=0.05, type=float, help='noise level if augtype is "gaussnoise"',
+    "--sigma",
+    default=0.05,
+    type=float,
+    help='noise level if augtype is "gaussnoise"',
 )
 parser.add_argument("--GPU", default="0", type=str)
 parser.add_argument("--seed", default=777, type=int, choices=[777, 888, 999])
@@ -143,7 +154,10 @@ parser.add_argument(
     help="output channels of stem convolution (nasbench101)",
 )
 parser.add_argument(
-    "--num_stacks", default=3, type=int, help="#stacks of modules (nasbench101)",
+    "--num_stacks",
+    default=3,
+    type=int,
+    help="#stacks of modules (nasbench101)",
 )
 parser.add_argument(
     "--num_modules_per_stack",
@@ -165,7 +179,11 @@ torch.manual_seed(args.seed)
 
 
 def get_batch_jacobian(
-    net, x, target, device, args=None,
+    net,
+    x,
+    target,
+    device,
+    args=None,
 ):  # pylint: disable=unused-argument
     net.zero_grad()
     x.requires_grad_(True)
@@ -180,12 +198,15 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 idx = args.search_space.find("_")
 dataset = args.objective[args.objective.find("_") + 1 :]
 search_space = SearchSpaceMapping[args.search_space[:idx]](
-    space=args.search_space[idx + 1 :], dataset=dataset, adjust_params=False,
+    space=args.search_space[idx + 1 :],
+    dataset=dataset,
+    adjust_params=False,
 )
 search_space = SearchSpace(architecture=search_space)
 
 random_architecture_generator = RandomSearch(
-    pipeline_space=search_space, initial_design_size=10,
+    pipeline_space=search_space,
+    initial_design_size=10,
 )
 
 # train_loader = datasets.get_data(args.dataset, args.data_loc, args.trainval, args.batch_size, args.augtype, args.repeat, args)
@@ -266,8 +287,8 @@ for N in runs:
 
         if args.dropout:
             add_dropout(network, args.sigma)
-        if args.init != "":
-            init_network(network, args.init)  # pylint: disable=undefined-variable
+        # if args.init != "":
+        #     init_network(network, args.init)  # pylint: disable=undefined-variable
 
         # random.setstate(ranstate)
         # np.random.set_state(npstate)
@@ -275,7 +296,9 @@ for N in runs:
 
         if args.naslib:
             zc_proxy = ZeroCost(
-                method_type="nwot", n_classes=n_classes, loss_fn=torch.nn.CrossEntropyLoss,
+                method_type="nwot",
+                n_classes=n_classes,
+                loss_fn=torch.nn.CrossEntropyLoss,
             )
             s = evaluate(zc_proxy=zc_proxy, x_graphs=[network], loader=train_loader)[0]
         else:
@@ -283,7 +306,9 @@ for N in runs:
                 network.K = np.zeros((args.batch_size, args.batch_size))
 
                 def counting_forward_hook(
-                    module, inp, out,
+                    module,
+                    inp,
+                    out,
                 ):  # pylint: disable=unused-argument
                     try:
                         if not module.visited_backwards:
@@ -303,7 +328,9 @@ for N in runs:
                         pass
 
                 def counting_backward_hook(
-                    module, inp, out,  # pylint: disable=unused-argument
+                    module,
+                    inp,
+                    out,  # pylint: disable=unused-argument
                 ):
                     module.visited_backwards = True
 
@@ -318,7 +345,9 @@ for N in runs:
             x2 = torch.clone(x)
             x2 = x2.to(device)
             x, target = x.to(device), target.to(device)
-            jacobs, labels, y, out = get_batch_jacobian(network, x, target, device, args)
+            jacobs, labels, y, out = get_batch_jacobian(
+                network, x, target, device, args
+            )
 
             if args.kernel:
                 s = get_score_func(args.score)(out, labels)
@@ -354,7 +383,7 @@ for N in runs:
     # runs.set_description(f"acc: {mean(acc):.2f}% time:{mean(times):.2f}")
     runs.set_description(f"time:{mean(times):.2f}")
 
-    if N > 0 and (N + 1) % (10 ** exponent) == 0:
+    if N > 0 and (N + 1) % (10**exponent) == 0:
         with open(args.working_directory / f"best_{N+1}.json", "w") as fp:
             json.dump(
                 {"best_arch_idx": int(best_arch_idx), "best_arch_id": best_arch_id},

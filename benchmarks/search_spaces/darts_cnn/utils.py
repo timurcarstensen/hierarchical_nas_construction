@@ -168,7 +168,9 @@ def load(model, model_path):
 def drop_path(x, drop_prob):
     if drop_prob > 0.0:
         keep_prob = 1.0 - drop_prob
-        mask = Variable(torch.cuda.FloatTensor(x.size(0), 1, 1, 1).bernoulli_(keep_prob))
+        mask = Variable(
+            torch.cuda.FloatTensor(x.size(0), 1, 1, 1).bernoulli_(keep_prob)
+        )
         x.div_(keep_prob)
         x.mul_(mask)
     return x
@@ -223,9 +225,13 @@ def prune(x, num_keep, mask, reset=False):
     else:
         x.data.copy_(
             torch.zeros_like(x).scatter(
-                dim=1, index=index, src=1e-3 * torch.randn_like(src),
+                dim=1,
+                index=index,
+                src=1e-3 * torch.randn_like(src),
             ),
         )
     return torch.zeros_like(x, dtype=torch.bool).scatter(
-        dim=1, index=index, src=torch.ones_like(src, dtype=torch.bool),
+        dim=1,
+        index=index,
+        src=torch.ones_like(src, dtype=torch.bool),
     )

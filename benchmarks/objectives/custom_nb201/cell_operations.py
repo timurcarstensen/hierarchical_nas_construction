@@ -8,13 +8,25 @@ __all__ = ["OPS", "RAW_OP_CLASSES", "ResNetBasicblock", "SearchSpaceNames"]
 
 OPS = {
     "none": lambda C_in, C_out, stride, affine, track_running_stats: Zero(
-        C_in, C_out, stride,
+        C_in,
+        C_out,
+        stride,
     ),
     "avg_pool_3x3": lambda C_in, C_out, stride, affine, track_running_stats: POOLING(
-        C_in, C_out, stride, "avg", affine, track_running_stats,
+        C_in,
+        C_out,
+        stride,
+        "avg",
+        affine,
+        track_running_stats,
     ),
     "max_pool_3x3": lambda C_in, C_out, stride, affine, track_running_stats: POOLING(
-        C_in, C_out, stride, "max", affine, track_running_stats,
+        C_in,
+        C_out,
+        stride,
+        "max",
+        affine,
+        track_running_stats,
     ),
     "nor_conv_7x7": lambda C_in, C_out, stride, affine, track_running_stats: ReLUConvBN(
         C_in,
@@ -46,7 +58,11 @@ OPS = {
         affine,
         track_running_stats,
     ),
-    "dua_sepc_3x3": lambda C_in, C_out, stride, affine, track_running_stats: DualSepConv(
+    "dua_sepc_3x3": lambda C_in,
+    C_out,
+    stride,
+    affine,
+    track_running_stats: DualSepConv(
         C_in,
         C_out,
         (3, 3),
@@ -56,7 +72,11 @@ OPS = {
         affine,
         track_running_stats,
     ),
-    "dua_sepc_5x5": lambda C_in, C_out, stride, affine, track_running_stats: DualSepConv(
+    "dua_sepc_5x5": lambda C_in,
+    C_out,
+    stride,
+    affine,
+    track_running_stats: DualSepConv(
         C_in,
         C_out,
         (5, 5),
@@ -136,7 +156,9 @@ class ReLUConvBN(nn.Module):
                 dilation=dilation,
                 bias=not affine,
             ),
-            nn.BatchNorm2d(C_out, affine=affine, track_running_stats=track_running_stats),
+            nn.BatchNorm2d(
+                C_out, affine=affine, track_running_stats=track_running_stats
+            ),
         )
 
     def forward(self, x):
@@ -169,7 +191,9 @@ class SepConv(nn.Module):
                 bias=False,
             ),
             nn.Conv2d(C_in, C_out, kernel_size=1, padding=0, bias=not affine),
-            nn.BatchNorm2d(C_out, affine=affine, track_running_stats=track_running_stats),
+            nn.BatchNorm2d(
+                C_out, affine=affine, track_running_stats=track_running_stats
+            ),
         )
 
     def forward(self, x):
@@ -200,7 +224,14 @@ class DualSepConv(nn.Module):
             track_running_stats,
         )
         self.op_b = SepConv(
-            C_in, C_out, kernel_size, 1, padding, dilation, affine, track_running_stats,
+            C_in,
+            C_out,
+            kernel_size,
+            1,
+            padding,
+            dilation,
+            affine,
+            track_running_stats,
         )
 
     def forward(self, x):
@@ -213,19 +244,40 @@ class ResNetBasicblock(nn.Module):
         super().__init__()
         assert stride in (1, 2), f"invalid stride {stride}"
         self.conv_a = ReLUConvBN(
-            inplanes, planes, 3, stride, 1, 1, affine, track_running_stats,
+            inplanes,
+            planes,
+            3,
+            stride,
+            1,
+            1,
+            affine,
+            track_running_stats,
         )
-        self.conv_b = ReLUConvBN(planes, planes, 3, 1, 1, 1, affine, track_running_stats)
+        self.conv_b = ReLUConvBN(
+            planes, planes, 3, 1, 1, 1, affine, track_running_stats
+        )
         if stride == 2:
             self.downsample = nn.Sequential(
                 nn.AvgPool2d(kernel_size=2, stride=2, padding=0),
                 nn.Conv2d(
-                    inplanes, planes, kernel_size=1, stride=1, padding=0, bias=False,
+                    inplanes,
+                    planes,
+                    kernel_size=1,
+                    stride=1,
+                    padding=0,
+                    bias=False,
                 ),
             )
         elif inplanes != planes:
             self.downsample = ReLUConvBN(
-                inplanes, planes, 1, 1, 0, 1, affine, track_running_stats,
+                inplanes,
+                planes,
+                1,
+                1,
+                0,
+                1,
+                affine,
+                track_running_stats,
             )
         else:
             self.downsample = None
@@ -236,11 +288,11 @@ class ResNetBasicblock(nn.Module):
 
     def extra_repr(self):
         return "{name}(inC={in_dim}, outC={out_dim}, stride={stride})".format(
-            name=self.__class__.__name__, **self.__dict__,
+            name=self.__class__.__name__,
+            **self.__dict__,
         )
 
     def forward(self, inputs):
-
         basicblock = self.conv_a(inputs)
         basicblock = self.conv_b(basicblock)
 
@@ -249,13 +301,22 @@ class ResNetBasicblock(nn.Module):
 
 
 class POOLING(nn.Module):
-    def __init__(self, C_in, C_out, stride, mode, affine=True, track_running_stats=True):
+    def __init__(
+        self, C_in, C_out, stride, mode, affine=True, track_running_stats=True
+    ):
         super().__init__()
         if C_in == C_out:
             self.preprocess = None
         else:
             self.preprocess = ReLUConvBN(
-                C_in, C_out, 1, 1, 0, 1, affine, track_running_stats,
+                C_in,
+                C_out,
+                1,
+                1,
+                0,
+                1,
+                affine,
+                track_running_stats,
             )
         if mode == "avg":
             self.op = nn.AvgPool2d(3, stride=stride, padding=1, count_include_pad=False)
@@ -314,18 +375,30 @@ class FactorizedReduce(nn.Module):
             for i in range(2):
                 self.convs.append(
                     nn.Conv2d(
-                        C_in, C_outs[i], 1, stride=stride, padding=0, bias=not affine,
+                        C_in,
+                        C_outs[i],
+                        1,
+                        stride=stride,
+                        padding=0,
+                        bias=not affine,
                     ),
                 )
             self.pad = nn.ConstantPad2d((0, 1, 0, 1), 0)
         elif stride == 1:
             self.conv = nn.Conv2d(
-                C_in, C_out, 1, stride=stride, padding=0, bias=not affine,
+                C_in,
+                C_out,
+                1,
+                stride=stride,
+                padding=0,
+                bias=not affine,
             )
         else:
             raise ValueError(f"Invalid stride : {stride}")
         self.bn = nn.BatchNorm2d(
-            C_out, affine=affine, track_running_stats=track_running_stats,
+            C_out,
+            affine=affine,
+            track_running_stats=track_running_stats,
         )
 
     def forward(self, x):
@@ -362,11 +435,15 @@ class PartAwareOp(nn.Module):
 
         if stride == 2:
             self.last = FactorizedReduce(  # pylint: disable=no-value-for-parameter
-                C_in + self.hidden, C_out, 2,
+                C_in + self.hidden,
+                C_out,
+                2,
             )
         elif stride == 1:
             self.last = FactorizedReduce(  # pylint: disable=no-value-for-parameter
-                C_in + self.hidden, C_out, 1,
+                C_in + self.hidden,
+                C_out,
+                1,
             )
         else:
             raise ValueError(f"Invalid Stride : {stride}")
@@ -393,7 +470,9 @@ class PartAwareOp(nn.Module):
         features = []
         for i in range(self.part):
             feature = aggreateF[:, :, i : i + 1].expand(
-                batch, self.hidden, IHs[i + 1] - IHs[i],
+                batch,
+                self.hidden,
+                IHs[i + 1] - IHs[i],
             )
             feature = feature.view(batch, self.hidden, IHs[i + 1] - IHs[i], 1)
             features.append(feature)
@@ -415,18 +494,37 @@ def drop_path(x, drop_prob):
 # Searching for A Robust Neural Architecture in Four GPU Hours
 class GDAS_Reduction_Cell(nn.Module):
     def __init__(
-        self, C_prev_prev, C_prev, C, reduction_prev, affine, track_running_stats,
+        self,
+        C_prev_prev,
+        C_prev,
+        C,
+        reduction_prev,
+        affine,
+        track_running_stats,
     ):
         super().__init__()
         if reduction_prev:
             self.preprocess0 = FactorizedReduce(
-                C_prev_prev, C, 2, affine, track_running_stats,
+                C_prev_prev,
+                C,
+                2,
+                affine,
+                track_running_stats,
             )
         else:
             self.preprocess0 = ReLUConvBN(
-                C_prev_prev, C, 1, 1, 0, 1, affine, track_running_stats,
+                C_prev_prev,
+                C,
+                1,
+                1,
+                0,
+                1,
+                affine,
+                track_running_stats,
             )
-        self.preprocess1 = ReLUConvBN(C_prev, C, 1, 1, 0, 1, affine, track_running_stats)
+        self.preprocess1 = ReLUConvBN(
+            C_prev, C, 1, 1, 0, 1, affine, track_running_stats
+        )
 
         self.reduction = True
         self.ops1 = nn.ModuleList(
@@ -452,12 +550,16 @@ class GDAS_Reduction_Cell(nn.Module):
                         bias=not affine,
                     ),
                     nn.BatchNorm2d(
-                        C, affine=affine, track_running_stats=track_running_stats,
+                        C,
+                        affine=affine,
+                        track_running_stats=track_running_stats,
                     ),
                     nn.ReLU(inplace=False),
                     nn.Conv2d(C, C, 1, stride=1, padding=0, bias=not affine),
                     nn.BatchNorm2d(
-                        C, affine=affine, track_running_stats=track_running_stats,
+                        C,
+                        affine=affine,
+                        track_running_stats=track_running_stats,
                     ),
                 ),
                 nn.Sequential(
@@ -481,12 +583,16 @@ class GDAS_Reduction_Cell(nn.Module):
                         bias=not affine,
                     ),
                     nn.BatchNorm2d(
-                        C, affine=affine, track_running_stats=track_running_stats,
+                        C,
+                        affine=affine,
+                        track_running_stats=track_running_stats,
                     ),
                     nn.ReLU(inplace=False),
                     nn.Conv2d(C, C, 1, stride=1, padding=0, bias=not affine),
                     nn.BatchNorm2d(
-                        C, affine=affine, track_running_stats=track_running_stats,
+                        C,
+                        affine=affine,
+                        track_running_stats=track_running_stats,
                     ),
                 ),
             ],
@@ -497,13 +603,17 @@ class GDAS_Reduction_Cell(nn.Module):
                 nn.Sequential(
                     nn.MaxPool2d(3, stride=2, padding=1),
                     nn.BatchNorm2d(
-                        C, affine=affine, track_running_stats=track_running_stats,
+                        C,
+                        affine=affine,
+                        track_running_stats=track_running_stats,
                     ),
                 ),
                 nn.Sequential(
                     nn.MaxPool2d(3, stride=2, padding=1),
                     nn.BatchNorm2d(
-                        C, affine=affine, track_running_stats=track_running_stats,
+                        C,
+                        affine=affine,
+                        track_running_stats=track_running_stats,
                     ),
                 ),
             ],

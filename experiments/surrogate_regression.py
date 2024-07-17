@@ -78,7 +78,7 @@ def read_data(
             configs += [previous_results[str(i)].config for i in range(1, 101)]
             if "cifar10" in str(results_dir) or "ImageNet" in str(results_dir):
                 y += [
-                    1-previous_results[str(i)].result["info_dict"]["x-valid_1"]/100
+                    1 - previous_results[str(i)].result["info_dict"]["x-valid_1"] / 100
                     for i in range(1, 101)
                 ]
             else:
@@ -116,7 +116,9 @@ parser.add_argument(
 )
 parser.add_argument("--n_train", type=int, default=100)
 parser.add_argument(
-    "--log", action="store_true", help="Whether to report the results in log scale",
+    "--log",
+    action="store_true",
+    help="Whether to report the results in log scale",
 )
 parser.add_argument("--seeds", nargs="*", default=list(range(20)))
 parser.add_argument(
@@ -149,12 +151,16 @@ if not args.DEBUG:
 idx = args.search_space.find("_")
 dataset = args.objective[args.objective.find("_") + 1 :]
 search_space = SearchSpaceMapping[args.search_space[:idx]](
-    space=args.search_space[idx + 1 :], dataset=dataset,
+    space=args.search_space[idx + 1 :],
+    dataset=dataset,
 )
 search_space = SearchSpace(architecture=search_space)
 
 configs, y = read_data(
-    args.working_directory, ylog=args.log, debug_mode=args.DEBUG, rs_only=args.rs_only,
+    args.working_directory,
+    ylog=args.log,
+    debug_mode=args.DEBUG,
+    rs_only=args.rs_only,
 )
 all_dict = {}
 n_train = args.n_train
@@ -230,7 +236,13 @@ for seed in args.seeds:
     elif args.surrogate_model == "gp_nasbot":
         hierarchy_considered = []
         graph_kernels = ["otmann"]
-        op_list = [k for k, v in search_space.hyperparameters["architecture"].terminal_to_op_names.items() if isinstance(v, AbstractPrimitive) or (isinstance(v, dict) and "op" in v)]
+        op_list = [
+            k
+            for k, v in search_space.hyperparameters[
+                "architecture"
+            ].terminal_to_op_names.items()
+            if isinstance(v, AbstractPrimitive) or (isinstance(v, dict) and "op" in v)
+        ]
         graph_kernels = [
             GraphKernelMapping[kernel](
                 op_list=op_list,
@@ -252,7 +264,10 @@ for seed in args.seeds:
     surrogate_model.fit(train_x=x_train, train_y=y_train)
     # & evaluate
     y_pred, y_pred_var = surrogate_model.predict(x_test)
-    y_pred, y_pred_var = y_pred.cpu().detach().numpy(), y_pred_var.cpu().detach().numpy()
+    y_pred, y_pred_var = (
+        y_pred.cpu().detach().numpy(),
+        y_pred_var.cpu().detach().numpy(),
+    )
 
     # ====== evaluate regression performance ======
     pearson = stats.pearsonr(y_test, y_pred)[0]
@@ -260,7 +275,6 @@ for seed in args.seeds:
     kendalltau = stats.kendalltau(y_test, y_pred)[0]
     y_pred_std = np.sqrt(y_pred_var)
     nll = -np.mean(stats.norm.logpdf(np.array(y_test), loc=y_pred, scale=y_pred_std))
-
 
     all_dict["pearson"] = float(pearson)
     all_dict["spearman"] = float(spearman)

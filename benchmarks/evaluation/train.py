@@ -11,8 +11,7 @@ from torch.utils.data import DataLoader
 def general_num_params(m):
     # return number of differential parameters of input model
     return sum(
-        np.prod(p.size())
-        for p in filter(lambda p: p.requires_grad, m.parameters())
+        np.prod(p.size()) for p in filter(lambda p: p.requires_grad, m.parameters())
     )
 
 
@@ -30,9 +29,7 @@ def train(
 ):
     """Trains a model on a given loader for one epoch."""
     model.train()
-    grad_clip = (
-        train_args.get("grad_clip", None)
-    )
+    grad_clip = train_args.get("grad_clip", None)
     for data_blob in loader:
         device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu",
@@ -199,7 +196,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Train")
     parser.add_argument(
-        "--dataset", help="Dataset to select.", required=True,
+        "--dataset",
+        help="Dataset to select.",
+        required=True,
     )
     parser.add_argument(
         "--data_path",
@@ -221,10 +220,16 @@ if __name__ == "__main__":
     train_criterion = get_loss("CrossEntropyLoss")
     evaluation_metric = get_evaluation_metric("Accuracy", top_k=1)
     optimizer = get_optimizer(
-        "SGD", model, lr=0.01, momentum=0.9, weight_decay=3e-4,
+        "SGD",
+        model,
+        lr=0.01,
+        momentum=0.9,
+        weight_decay=3e-4,
     )
     scheduler = get_scheduler(
-        scheduler="CosineAnnealingLR", optimizer=optimizer, T_max=n_epochs,
+        scheduler="CosineAnnealingLR",
+        optimizer=optimizer,
+        T_max=n_epochs,
     )
     train_loader, valid_loader, test_loader = get_train_val_test_loaders(
         dataset=args.dataset,

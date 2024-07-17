@@ -142,28 +142,42 @@ def get_dataset(
     # load datasets using torchvision
     if name == "cifar10":
         train_data = dset.CIFAR10(
-            root, train=True, transform=train_transform, download=True,
+            root,
+            train=True,
+            transform=train_transform,
+            download=True,
         )
         test_data = dset.CIFAR10(
-            root, train=False, transform=test_transform, download=True,
+            root,
+            train=False,
+            transform=test_transform,
+            download=True,
         )
         assert len(train_data) == 50000
         assert len(test_data) == 10000
     elif name == "cifar100":
         train_data = dset.CIFAR100(
-            root, train=True, transform=train_transform, download=True,
+            root,
+            train=True,
+            transform=train_transform,
+            download=True,
         )
         test_data = dset.CIFAR100(
-            root, train=False, transform=test_transform, download=True,
+            root,
+            train=False,
+            transform=test_transform,
+            download=True,
         )
         assert len(train_data) == 50000
         assert len(test_data) == 10000
     elif name.startswith("imagenet-1k"):
         train_data = dset.ImageFolder(
-            os.path.join(root, "train"), train_transform,
+            os.path.join(root, "train"),
+            train_transform,
         )
         test_data = dset.ImageFolder(
-            os.path.join(root, "val"), test_transform,
+            os.path.join(root, "val"),
+            test_transform,
         )
         assert (
             len(train_data) == 1281167 and len(test_data) == 50000
@@ -222,7 +236,8 @@ def get_dataloaders(
         else:
             config_path = "custom_nb201/configs/CIFAR.config"
         split_info = load_config(
-            dir_path / "custom_nb201/configs/cifar-split.txt", None,
+            dir_path / "custom_nb201/configs/cifar-split.txt",
+            None,
         )
     elif dataset.startswith("ImageNet16"):
         if use_less:
@@ -256,8 +271,12 @@ def get_dataloaders(
                 pin_memory=True,
             ),
         }
-        assert len(train_data) == len(split_info.train) + len(
-            split_info.valid,
+        assert (
+            len(train_data)
+            == len(split_info.train)
+            + len(
+                split_info.valid,
+            )
         ), f"invalid length : {len(train_data)} vs {len(split_info.train)} + {len(split_info.valid)}"
         train_data_v2 = deepcopy(train_data)
         train_data_v2.transform = valid_data.transform
@@ -309,8 +328,7 @@ def get_dataloaders(
                 "ori-test": valid_loader,
                 "x-valid": DataLoader(
                     valid_data,
-                    batch_size=config.batch_size
-                    // gradient_accumulations,
+                    batch_size=config.batch_size // gradient_accumulations,
                     sampler=torch.utils.data.sampler.SubsetRandomSampler(
                         cifar100_splits.xvalid,
                     ),
@@ -319,8 +337,7 @@ def get_dataloaders(
                 ),
                 "x-test": DataLoader(
                     valid_data,
-                    batch_size=config.batch_size
-                    // gradient_accumulations,
+                    batch_size=config.batch_size // gradient_accumulations,
                     sampler=torch.utils.data.sampler.SubsetRandomSampler(
                         cifar100_splits.xtest,
                     ),
@@ -330,16 +347,14 @@ def get_dataloaders(
             }
         elif dataset == "ImageNet16-120":
             imagenet16_splits = load_config(
-                dir_path
-                / "custom_nb201/configs/imagenet-16-120-test-split.txt",
+                dir_path / "custom_nb201/configs/imagenet-16-120-test-split.txt",
                 None,
             )
             val_loaders = {
                 "ori-test": valid_loader,
                 "x-valid": DataLoader(
                     valid_data,
-                    batch_size=config.batch_size
-                    // gradient_accumulations,
+                    batch_size=config.batch_size // gradient_accumulations,
                     sampler=torch.utils.data.sampler.SubsetRandomSampler(
                         imagenet16_splits.xvalid,
                     ),
@@ -348,8 +363,7 @@ def get_dataloaders(
                 ),
                 "x-test": DataLoader(
                     valid_data,
-                    batch_size=config.batch_size
-                    // gradient_accumulations,
+                    batch_size=config.batch_size // gradient_accumulations,
                     sampler=torch.utils.data.sampler.SubsetRandomSampler(
                         imagenet16_splits.xtest,
                     ),
@@ -406,7 +420,9 @@ def procedure(
         # record loss and accuracy
         if mode == "valid":
             prec1, prec5 = obtain_accuracy(
-                logits.data, targets.data, topk=(1, 5),
+                logits.data,
+                targets.data,
+                topk=(1, 5),
             )
             top1.update(prec1.item(), inputs.size(0))
             top5.update(prec5.item(), inputs.size(0))
@@ -429,7 +445,8 @@ def evaluate_for_seed(
 ) -> dict[str, Any]:
     # get optimizer, scheduler, criterion
     optimizer, scheduler, criterion = get_optim_scheduler(
-        model.parameters(), config,
+        model.parameters(),
+        config,
     )
     scaler = torch.cuda.amp.GradScaler()
     if workers > 1:
@@ -612,11 +629,9 @@ class NB201Pipeline(Objective):
             "loss": self.transform(val_err),
             "info_dict": {
                 **out_dict,
-
-                    "train_time": end - start,
-                    "timestamp": end,
-                    "number_of_parameters": nof_parameters
-                ,
+                "train_time": end - start,
+                "timestamp": end,
+                "number_of_parameters": nof_parameters,
             },
         }
 
@@ -665,19 +680,16 @@ if __name__ == "__main__":
     # pylint: enable=ungrouped-imports
 
     def convert_identifier_to_str(
-        identifier: str, terminals_to_nb201: dict,
+        identifier: str,
+        terminals_to_nb201: dict,
     ) -> str:
         """Converts identifier to string representation."""
-        start_indices = [
-            m.start() for m in re.finditer("(OPS*)", identifier)
-        ]
+        start_indices = [m.start() for m in re.finditer("(OPS*)", identifier)]
         op_edge_list = []
         counter = 0
         for i, _ in enumerate(start_indices):
             start_idx = start_indices[i]
-            end_idx = (
-                start_indices[i + 1] if i < len(start_indices) - 1 else -1
-            )
+            end_idx = start_indices[i + 1] if i < len(start_indices) - 1 else -1
             substring = identifier[start_idx:end_idx]
             for k in terminals_to_nb201:
                 if k in substring:
@@ -727,7 +739,9 @@ if __name__ == "__main__":
         eval_mode=True,
     )
     res = run_pipeline_fn(
-        "", "", pipeline_space.hyperparameters["architecture"],
+        "",
+        "",
+        pipeline_space.hyperparameters["architecture"],
     )
 
     pipeline_space = {
@@ -761,14 +775,14 @@ if __name__ == "__main__":
         eval_mode=True,
     )
     res = run_pipeline_fn(
-        "", "", sampled_pipeline_space.hyperparameters["architecture"],
+        "",
+        "",
+        sampled_pipeline_space.hyperparameters["architecture"],
     )
 
     if args.write_graph:
         writer = SummaryWriter("results/hierarchical_nb201")
-        net = sampled_pipeline_space.hyperparameters[
-            "architecture"
-        ].to_pytorch()
+        net = sampled_pipeline_space.hyperparameters["architecture"].to_pytorch()
         images = torch.randn((8, 3, 32, 32))
         _ = sampled_pipeline_space.hyperparameters["architecture"](images)
         _ = net(images)
@@ -783,15 +797,14 @@ if __name__ == "__main__":
         "zero": "none",
     }
     identifier_to_str_mapping = partial(
-        convert_identifier_to_str, terminals_to_nb201=terminals_to_nb201,
+        convert_identifier_to_str,
+        terminals_to_nb201=terminals_to_nb201,
     )
     api = NAS201(
         os.path.dirname(args.data_path),
         negative=False,
         seed=args.seed,
-        task=f"{args.dataset}-valid"
-        if args.dataset == "cifar10"
-        else args.dataset,
+        task=f"{args.dataset}-valid" if args.dataset == "cifar10" else args.dataset,
         log_scale=True,
         identifier_to_str_mapping=identifier_to_str_mapping,
     )
@@ -814,9 +827,7 @@ if __name__ == "__main__":
                 empty_idx = new_identifier.find(" ", starting_idx)
                 closing_idx = new_identifier.find(")", starting_idx)
                 new_identifier = (
-                    new_identifier[: empty_idx + 1]
-                    + ops
-                    + new_identifier[closing_idx:]
+                    new_identifier[: empty_idx + 1] + ops + new_identifier[closing_idx:]
                 )
                 start_idx = new_identifier.find(")", starting_idx)
 
@@ -827,14 +838,14 @@ if __name__ == "__main__":
                 res_api = run_pipeline_fn(
                     sampled_pipeline_space.hyperparameters["architecture"],
                 )
-                vals[new_identifier] = 100 * (
-                    1 - res_api["info_dict"]["val_score"]
-                )
+                vals[new_identifier] = 100 * (1 - res_api["info_dict"]["val_score"])
             except Exception:
                 pass
 
         results = sorted(
-            vals.items(), key=lambda pair: pair[1], reverse=True,
+            vals.items(),
+            key=lambda pair: pair[1],
+            reverse=True,
         )[:10]
     else:
         # seed 777
@@ -867,20 +878,15 @@ if __name__ == "__main__":
                 "architecture"
             ].to_pytorch()
 
-            tiny_net_total_params = sum(
-                p.numel() for p in tiny_net.parameters()
-            )
-            our_model_total_params = sum(
-                p.numel() for p in our_model.parameters()
-            )
+            tiny_net_total_params = sum(p.numel() for p in tiny_net.parameters())
+            our_model_total_params = sum(p.numel() for p in our_model.parameters())
 
-            new_state_dict = {
-                k: None for k in our_model.state_dict()
-            }
+            new_state_dict = {k: None for k in our_model.state_dict()}
             our_model_values = our_model.state_dict().values()
             for (_k_tiny, v_tiny), (k_our, _v_our) in zip(
                 tiny_net.state_dict().items(),
-                our_model.state_dict().items(), strict=False,
+                our_model.state_dict().items(),
+                strict=False,
             ):
                 new_state_dict[k_our] = v_tiny
             our_model.load_state_dict(new_state_dict)

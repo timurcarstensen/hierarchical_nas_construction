@@ -42,12 +42,8 @@ class TinyNetwork(nn.Module):
             nn.BatchNorm2d(C),
         )
 
-        layer_channels = (
-            [C] * N + [C * 2] + [C * 2] * N + [C * 4] + [C * 4] * N
-        )
-        layer_reductions = (
-            [False] * N + [True] + [False] * N + [True] + [False] * N
-        )
+        layer_channels = [C] * N + [C * 2] + [C * 2] * N + [C * 4] + [C * 4] * N
+        layer_reductions = [False] * N + [True] + [False] * N + [True] + [False] * N
 
         C_prev, num_edge, edge2index = C, None, None
         self.cells = nn.ModuleList()
@@ -71,8 +67,7 @@ class TinyNetwork(nn.Module):
                     num_edge, edge2index = cell.num_edges, cell.edge2index
                 else:
                     assert (
-                        num_edge == cell.num_edges
-                        and edge2index == cell.edge2index
+                        num_edge == cell.num_edges and edge2index == cell.edge2index
                     ), f"invalid {num_edge} vs. {cell.num_edges}."
             self.cells.append(cell)
             C_prev = cell.out_dim
@@ -80,7 +75,8 @@ class TinyNetwork(nn.Module):
         self._Layer = len(self.cells)
         self.edge2index = edge2index
         self.lastact = nn.Sequential(
-            nn.BatchNorm2d(C_prev), nn.ReLU(inplace=True),
+            nn.BatchNorm2d(C_prev),
+            nn.ReLU(inplace=True),
         )
         self.global_pooling = nn.AdaptiveAvgPool2d(1)
         self.classifier = nn.Linear(C_prev, num_classes)
@@ -108,9 +104,7 @@ class TinyNetwork(nn.Module):
         return loss
 
     def _get_kl_reg(self):
-        assert (
-            self.species == "dirichlet"
-        )  # kl implemented only for Dirichlet
+        assert self.species == "dirichlet"  # kl implemented only for Dirichlet
         cons = F.elu(self._arch_parameters) + 1
         q = Dirichlet(cons)
         p = self.anchor
@@ -140,7 +134,9 @@ class TinyNetwork(nn.Module):
             logging.info(
                 "arch-parameters :\n{:}".format(
                     process_step_matrix(
-                        self._arch_parameters, "softmax", self._mask,
+                        self._arch_parameters,
+                        "softmax",
+                        self._mask,
                     ).cpu(),
                 ),
             )
@@ -157,13 +153,16 @@ class TinyNetwork(nn.Module):
 
     def extra_repr(self):
         return "{name}(C={_C}, Max-Nodes={max_nodes}, N={_layerN}, L={_Layer})".format(
-            name=self.__class__.__name__, **self.__dict__,
+            name=self.__class__.__name__,
+            **self.__dict__,
         )
 
     def genotype(self):
         genotypes = []
         alphas = process_step_matrix(
-            self._arch_parameters, "softmax", self._mask,
+            self._arch_parameters,
+            "softmax",
+            self._mask,
         )
         for i in range(1, self.max_nodes):
             xlist = []
@@ -181,7 +180,10 @@ class TinyNetwork(nn.Module):
 
     def forward(self, inputs):
         alphas = process_step_matrix(
-            self._arch_parameters, self.species, self._mask, self.tau,
+            self._arch_parameters,
+            self.species,
+            self._mask,
+            self.tau,
         )
 
         feature = self.stem(inputs)

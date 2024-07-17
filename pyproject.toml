@@ -75,6 +75,7 @@ ignore = [
     "TCH003", # Move stdlib import into TYPE_CHECKING
     "B010", # Do not use `setattr`
     "PD011", # Use .to_numpy() instead of .values  (triggers on report.values)
+    "E741"
     # These tend to be lighweight and confuse pyright
 ]
 

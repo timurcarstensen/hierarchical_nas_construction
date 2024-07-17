@@ -595,6 +595,7 @@ class NB201Pipeline(Objective):
                     workers=self.workers,
                     use_trivial_augment=hp.get("trivial_augment", False),
                     eval_mode=self.eval_mode,
+                    use_less=True
                 )
 
                 # fix seed for reproducibility

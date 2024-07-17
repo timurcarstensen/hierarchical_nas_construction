@@ -2,19 +2,19 @@
 # Copyright (c) Xuanyi Dong [GitHub D-X-Y], 2019 #
 ##################################################
 import torch
-import torch.nn as nn
+from torch import nn
 
 __all__ = ["OPS", "RAW_OP_CLASSES", "ResNetBasicblock", "SearchSpaceNames"]
 
 OPS = {
     "none": lambda C_in, C_out, stride, affine, track_running_stats: Zero(
-        C_in, C_out, stride
+        C_in, C_out, stride,
     ),
     "avg_pool_3x3": lambda C_in, C_out, stride, affine, track_running_stats: POOLING(
-        C_in, C_out, stride, "avg", affine, track_running_stats
+        C_in, C_out, stride, "avg", affine, track_running_stats,
     ),
     "max_pool_3x3": lambda C_in, C_out, stride, affine, track_running_stats: POOLING(
-        C_in, C_out, stride, "max", affine, track_running_stats
+        C_in, C_out, stride, "max", affine, track_running_stats,
     ),
     "nor_conv_7x7": lambda C_in, C_out, stride, affine, track_running_stats: ReLUConvBN(
         C_in,
@@ -200,33 +200,32 @@ class DualSepConv(nn.Module):
             track_running_stats,
         )
         self.op_b = SepConv(
-            C_in, C_out, kernel_size, 1, padding, dilation, affine, track_running_stats
+            C_in, C_out, kernel_size, 1, padding, dilation, affine, track_running_stats,
         )
 
     def forward(self, x):
         x = self.op_a(x)
-        x = self.op_b(x)
-        return x
+        return self.op_b(x)
 
 
 class ResNetBasicblock(nn.Module):
     def __init__(self, inplanes, planes, stride, affine=True, track_running_stats=True):
         super().__init__()
-        assert stride == 1 or stride == 2, f"invalid stride {stride}"
+        assert stride in (1, 2), f"invalid stride {stride}"
         self.conv_a = ReLUConvBN(
-            inplanes, planes, 3, stride, 1, 1, affine, track_running_stats
+            inplanes, planes, 3, stride, 1, 1, affine, track_running_stats,
         )
         self.conv_b = ReLUConvBN(planes, planes, 3, 1, 1, 1, affine, track_running_stats)
         if stride == 2:
             self.downsample = nn.Sequential(
                 nn.AvgPool2d(kernel_size=2, stride=2, padding=0),
                 nn.Conv2d(
-                    inplanes, planes, kernel_size=1, stride=1, padding=0, bias=False
+                    inplanes, planes, kernel_size=1, stride=1, padding=0, bias=False,
                 ),
             )
         elif inplanes != planes:
             self.downsample = ReLUConvBN(
-                inplanes, planes, 1, 1, 0, 1, affine, track_running_stats
+                inplanes, planes, 1, 1, 0, 1, affine, track_running_stats,
             )
         else:
             self.downsample = None
@@ -236,20 +235,16 @@ class ResNetBasicblock(nn.Module):
         self.num_conv = 2
 
     def extra_repr(self):
-        string = "{name}(inC={in_dim}, outC={out_dim}, stride={stride})".format(
-            name=self.__class__.__name__, **self.__dict__
+        return "{name}(inC={in_dim}, outC={out_dim}, stride={stride})".format(
+            name=self.__class__.__name__, **self.__dict__,
         )
-        return string
 
     def forward(self, inputs):
 
         basicblock = self.conv_a(inputs)
         basicblock = self.conv_b(basicblock)
 
-        if self.downsample is not None:
-            residual = self.downsample(inputs)
-        else:
-            residual = inputs
+        residual = self.downsample(inputs) if self.downsample is not None else inputs
         return residual + basicblock
 
 
@@ -260,7 +255,7 @@ class POOLING(nn.Module):
             self.preprocess = None
         else:
             self.preprocess = ReLUConvBN(
-                C_in, C_out, 1, 1, 0, 1, affine, track_running_stats
+                C_in, C_out, 1, 1, 0, 1, affine, track_running_stats,
             )
         if mode == "avg":
             self.op = nn.AvgPool2d(3, stride=stride, padding=1, count_include_pad=False)
@@ -270,10 +265,7 @@ class POOLING(nn.Module):
             raise ValueError(f"Invalid mode={mode} in POOLING")
 
     def forward(self, inputs):
-        if self.preprocess:
-            x = self.preprocess(inputs)
-        else:
-            x = inputs
+        x = self.preprocess(inputs) if self.preprocess else inputs
         return self.op(x)
 
 
@@ -302,8 +294,7 @@ class Zero(nn.Module):
         else:
             shape = list(x.shape)
             shape[1] = self.C_out
-            zeros = x.new_zeros(shape, dtype=x.dtype, device=x.device)
-            return zeros
+            return x.new_zeros(shape, dtype=x.dtype, device=x.device)
 
     def extra_repr(self):
         return "C_in={C_in}, C_out={C_out}, stride={stride}".format(**self.__dict__)
@@ -323,18 +314,18 @@ class FactorizedReduce(nn.Module):
             for i in range(2):
                 self.convs.append(
                     nn.Conv2d(
-                        C_in, C_outs[i], 1, stride=stride, padding=0, bias=not affine
-                    )
+                        C_in, C_outs[i], 1, stride=stride, padding=0, bias=not affine,
+                    ),
                 )
             self.pad = nn.ConstantPad2d((0, 1, 0, 1), 0)
         elif stride == 1:
             self.conv = nn.Conv2d(
-                C_in, C_out, 1, stride=stride, padding=0, bias=not affine
+                C_in, C_out, 1, stride=stride, padding=0, bias=not affine,
             )
         else:
             raise ValueError(f"Invalid stride : {stride}")
         self.bn = nn.BatchNorm2d(
-            C_out, affine=affine, track_running_stats=track_running_stats
+            C_out, affine=affine, track_running_stats=track_running_stats,
         )
 
     def forward(self, x):
@@ -344,8 +335,7 @@ class FactorizedReduce(nn.Module):
             out = torch.cat([self.convs[0](x), self.convs[1](y[:, :, 1:, 1:])], dim=1)
         else:
             out = self.conv(x)
-        out = self.bn(out)
-        return out
+        return self.bn(out)
 
     def extra_repr(self):
         return "C_in={C_in}, C_out={C_out}, stride={stride}".format(**self.__dict__)
@@ -365,27 +355,25 @@ class PartAwareOp(nn.Module):
                     nn.ReLU(),
                     nn.Conv2d(C_in, self.hidden, 1),
                     nn.BatchNorm2d(self.hidden, affine=True),
-                )
+                ),
             )
         self.W_K = nn.Linear(self.hidden, self.hidden)
         self.W_Q = nn.Linear(self.hidden, self.hidden)
 
         if stride == 2:
             self.last = FactorizedReduce(  # pylint: disable=no-value-for-parameter
-                C_in + self.hidden, C_out, 2
+                C_in + self.hidden, C_out, 2,
             )
         elif stride == 1:
             self.last = FactorizedReduce(  # pylint: disable=no-value-for-parameter
-                C_in + self.hidden, C_out, 1
+                C_in + self.hidden, C_out, 1,
             )
         else:
             raise ValueError(f"Invalid Stride : {stride}")
 
     def forward(self, x):
         batch, _, H, W = x.size()
-        assert H >= self.part, "input size too small : {:} vs {:}".format(
-            x.shape, self.part
-        )
+        assert self.part <= H, f"input size too small : {x.shape} vs {self.part}"
         IHs = [0]
         for i in range(self.part):
             IHs.append(min(H, int((i + 1) * (float(H) / self.part))))
@@ -405,14 +393,13 @@ class PartAwareOp(nn.Module):
         features = []
         for i in range(self.part):
             feature = aggreateF[:, :, i : i + 1].expand(
-                batch, self.hidden, IHs[i + 1] - IHs[i]
+                batch, self.hidden, IHs[i + 1] - IHs[i],
             )
             feature = feature.view(batch, self.hidden, IHs[i + 1] - IHs[i], 1)
             features.append(feature)
         features = torch.cat(features, dim=2).expand(batch, self.hidden, H, W)
         final_fea = torch.cat((x, features), dim=1)
-        outputs = self.last(final_fea)
-        return outputs
+        return self.last(final_fea)
 
 
 def drop_path(x, drop_prob):
@@ -428,16 +415,16 @@ def drop_path(x, drop_prob):
 # Searching for A Robust Neural Architecture in Four GPU Hours
 class GDAS_Reduction_Cell(nn.Module):
     def __init__(
-        self, C_prev_prev, C_prev, C, reduction_prev, affine, track_running_stats
+        self, C_prev_prev, C_prev, C, reduction_prev, affine, track_running_stats,
     ):
         super().__init__()
         if reduction_prev:
             self.preprocess0 = FactorizedReduce(
-                C_prev_prev, C, 2, affine, track_running_stats
+                C_prev_prev, C, 2, affine, track_running_stats,
             )
         else:
             self.preprocess0 = ReLUConvBN(
-                C_prev_prev, C, 1, 1, 0, 1, affine, track_running_stats
+                C_prev_prev, C, 1, 1, 0, 1, affine, track_running_stats,
             )
         self.preprocess1 = ReLUConvBN(C_prev, C, 1, 1, 0, 1, affine, track_running_stats)
 
@@ -465,12 +452,12 @@ class GDAS_Reduction_Cell(nn.Module):
                         bias=not affine,
                     ),
                     nn.BatchNorm2d(
-                        C, affine=affine, track_running_stats=track_running_stats
+                        C, affine=affine, track_running_stats=track_running_stats,
                     ),
                     nn.ReLU(inplace=False),
                     nn.Conv2d(C, C, 1, stride=1, padding=0, bias=not affine),
                     nn.BatchNorm2d(
-                        C, affine=affine, track_running_stats=track_running_stats
+                        C, affine=affine, track_running_stats=track_running_stats,
                     ),
                 ),
                 nn.Sequential(
@@ -494,15 +481,15 @@ class GDAS_Reduction_Cell(nn.Module):
                         bias=not affine,
                     ),
                     nn.BatchNorm2d(
-                        C, affine=affine, track_running_stats=track_running_stats
+                        C, affine=affine, track_running_stats=track_running_stats,
                     ),
                     nn.ReLU(inplace=False),
                     nn.Conv2d(C, C, 1, stride=1, padding=0, bias=not affine),
                     nn.BatchNorm2d(
-                        C, affine=affine, track_running_stats=track_running_stats
+                        C, affine=affine, track_running_stats=track_running_stats,
                     ),
                 ),
-            ]
+            ],
         )
 
         self.ops2 = nn.ModuleList(
@@ -510,16 +497,16 @@ class GDAS_Reduction_Cell(nn.Module):
                 nn.Sequential(
                     nn.MaxPool2d(3, stride=2, padding=1),
                     nn.BatchNorm2d(
-                        C, affine=affine, track_running_stats=track_running_stats
+                        C, affine=affine, track_running_stats=track_running_stats,
                     ),
                 ),
                 nn.Sequential(
                     nn.MaxPool2d(3, stride=2, padding=1),
                     nn.BatchNorm2d(
-                        C, affine=affine, track_running_stats=track_running_stats
+                        C, affine=affine, track_running_stats=track_running_stats,
                     ),
                 ),
-            ]
+            ],
         )
 
     @property

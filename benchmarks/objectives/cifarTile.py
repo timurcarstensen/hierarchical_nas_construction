@@ -3,7 +3,6 @@ import time
 
 import numpy as np
 import torch
-
 from benchmarks.evaluation.objective import Objective
 from benchmarks.evaluation.train import training_pipeline
 from benchmarks.evaluation.utils import (
@@ -67,7 +66,7 @@ class CifarTileObjective(Objective):
 
         optimizer = get_optimizer("SGD", model, **self.optim_kwargs)
         scheduler = get_scheduler(
-            scheduler="CosineAnnealingLR", optimizer=optimizer, T_max=self.n_epochs
+            scheduler="CosineAnnealingLR", optimizer=optimizer, T_max=self.n_epochs,
         )
         train_loader, valid_loader, test_loader = get_train_val_test_loaders(
             dataset=self.dataset,
@@ -124,12 +123,12 @@ class CifarTileObjective(Objective):
 if __name__ == "__main__":
     import argparse
 
-    # pylint: disable=ungrouped-imports
-    from neps.search_spaces.search_space import SearchSpace
-
     from benchmarks.search_spaces.hierarchical_nb201.graph import (
         NB201Spaces,
     )
+
+    # pylint: disable=ungrouped-imports
+    from neps.search_spaces.search_space import SearchSpace
 
     # pylint: enable=ungrouped-imports
 
@@ -147,11 +146,11 @@ if __name__ == "__main__":
     parser.add_argument("--seed", default=777, type=int)
     args = parser.parse_args()
 
-    pipeline_space = dict(
-        architecture=NB201Spaces(
-            space="variable_multi_multi", dataset=args.dataset, adjust_params=False
-        )
-    )
+    pipeline_space = {
+        "architecture": NB201Spaces(
+            space="variable_multi_multi", dataset=args.dataset, adjust_params=False,
+        ),
+    }
     pipeline_space = SearchSpace(**pipeline_space)
     pipeline_space = pipeline_space.sample()
 

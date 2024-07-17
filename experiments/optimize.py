@@ -9,17 +9,6 @@ import hydra
 import neps
 import numpy as np
 import torch
-from neps.optimizers.bayesian_optimization.acquisition_samplers import (
-    EvolutionSampler,
-)
-from neps.optimizers.bayesian_optimization.kernels import (
-    GraphKernelMapping,
-)
-from neps.optimizers.bayesian_optimization.models.gp_hierarchy import (
-    ComprehensiveGPHierarchy,
-)
-from neps.search_spaces.search_space import SearchSpace
-from omegaconf import DictConfig
 
 # importing objectives
 from benchmarks.objectives.addNIST import AddNISTObjective
@@ -40,6 +29,17 @@ from benchmarks.search_spaces.hierarchical_nb201.graph import (
     NB201Spaces,
 )
 from experiments.zero_cost_rank_correlation import ZeroCost, evaluate
+from neps.optimizers.bayesian_optimization.acquisition_samplers import (
+    EvolutionSampler,
+)
+from neps.optimizers.bayesian_optimization.kernels import (
+    GraphKernelMapping,
+)
+from neps.optimizers.bayesian_optimization.models.gp_hierarchy import (
+    ComprehensiveGPHierarchy,
+)
+from neps.search_spaces.search_space import SearchSpace
+from omegaconf import DictConfig
 
 SearchSpaceMapping = {
     "nb201": NB201Spaces,
@@ -73,11 +73,11 @@ ObjectiveMapping = {
     "nb201_cifar10": partial(NB201Pipeline, dataset="cifar10"),
     "nb201_cifar100": partial(NB201Pipeline, dataset="cifar100"),
     "nb201_ImageNet16-120": partial(
-        NB201Pipeline, dataset="ImageNet16-120"
+        NB201Pipeline, dataset="ImageNet16-120",
     ),
     "act_cifar10": partial(CIFAR10ActivationObjective, dataset="cifar10"),
     "act_cifar100": partial(
-        CIFAR10ActivationObjective, dataset="cifar100"
+        CIFAR10ActivationObjective, dataset="cifar100",
     ),
     "darts": DARTSCnn,
     "debug": run_debug_pipeline,
@@ -102,7 +102,7 @@ def main(cfg: DictConfig):
         working_directory += f"_{cfg.experiment.pool_strategy}"
         working_directory += f"_pool{cfg.experiment.pool_size}"
     working_directory = os.path.join(
-        working_directory, f"{cfg.experiment.seed}"
+        working_directory, f"{cfg.experiment.seed}",
     )
 
     if (
@@ -132,13 +132,13 @@ def main(cfg: DictConfig):
             assert cfg.experiment.adjust_params in ["max"]
 
             # Creates a pipeline space with the neps SearchSpace class
-            pipeline_space = dict(
-                architecture=SearchSpaceMapping[search_space_key](
+            pipeline_space = {
+                "architecture": SearchSpaceMapping[search_space_key](
                     space="fixed_1_none",
                     dataset=dataset,
                     adjust_params=None,
                 ),
-            )
+            }
             pipeline_space = SearchSpace(**pipeline_space)
             if cfg.experiment.adjust_params == "max":
                 identifier = (
@@ -171,10 +171,8 @@ def main(cfg: DictConfig):
             )
 
         return_graph_per_hierarchy = (
-            True
-            if cfg.experiment.surrogate_model
+            cfg.experiment.surrogate_model
             in ("gpwl_hierarchical", "gpwl", "gp_nasbot")
-            else False
         )
         if "nb201_" in cfg.experiment.objective:
             search_space = SearchSpaceMapping[search_space_key](
@@ -192,21 +190,21 @@ def main(cfg: DictConfig):
                 else False,
             )
 
-    elif "darts" == cfg.experiment.objective:
+    elif cfg.experiment.objective == "darts":
         run_pipeline_fn = ObjectiveMapping[cfg.experiment.objective](
             data_path=data_path,
             seed=cfg.experiment.seed,
             log_scale=cfg.experiment.log,
         )
-        search_space = dict(
-            normal=SearchSpaceMapping["darts"](),
-            reduce=SearchSpaceMapping["darts"](),
-        )
+        search_space = {
+            "normal": SearchSpaceMapping["darts"](),
+            "reduce": SearchSpaceMapping["darts"](),
+        }
         cfg.experiment.pool_strategy = partial(
-            EvolutionSampler, p_crossover=0.0, patience=10
+            EvolutionSampler, p_crossover=0.0, patience=10,
         )
     # run the debug pipeline
-    elif "debug" == cfg.experiment.objective:
+    elif cfg.experiment.objective == "debug":
         run_pipeline_fn = ObjectiveMapping[cfg.experiment.objective]
         idx = cfg.experiment.search_space.find("_")
         dataset = cfg.experiment.objective[
@@ -218,7 +216,7 @@ def main(cfg: DictConfig):
         ](space=cfg.experiment.search_space[idx + 1 :], dataset="cifar10")
     else:
         raise NotImplementedError(
-            f"Objective {cfg.experiment.objective} not implemented"
+            f"Objective {cfg.experiment.objective} not implemented",
         )
 
     match cfg.experiment.surrogate_model:
@@ -277,8 +275,8 @@ def main(cfg: DictConfig):
             hierarchy_considered = []
             graph_kernels = ["nasbot"]
             if (
-                "nb201_variable_multi_multi"
-                == cfg.experiment.search_space
+                cfg.experiment.search_space
+                == "nb201_variable_multi_multi"
             ):
                 include_op_list = [
                     "id",
@@ -333,7 +331,7 @@ def main(cfg: DictConfig):
     logging.basicConfig(level=logging.INFO)
 
     if not isinstance(search_space, dict) and not isinstance(
-        search_space, SearchSpace
+        search_space, SearchSpace,
     ):
         search_space = {"architecture": search_space}
 

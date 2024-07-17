@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # =============================================================================
-"""
-This contains implementations of nwot based on the updated version of
+"""This contains implementations of nwot based on the updated version of
 https://github.com/BayesWatch/nas-without-training
-to reflect the second version of the paper https://arxiv.org/abs/2006.04647
+to reflect the second version of the paper https://arxiv.org/abs/2006.04647.
 """
 
 import numpy as np
@@ -26,7 +25,7 @@ from . import measure
 
 @measure("nwot", bn=True)
 def compute_nwot(
-    net, inputs, targets, split_data=1, loss_fn=None
+    net, inputs, targets, split_data=1, loss_fn=None,
 ):  # pylint: disable=unused-argument
 
     batch_size = len(targets)
@@ -39,7 +38,7 @@ def compute_nwot(
         net.K = net.K + K.cpu().numpy() + K2.cpu().numpy()  # hamming distance
 
     def counting_backward_hook(
-        module, inp, out
+        module, inp, out,
     ):  # pylint: disable=unused-argument,unused-variable
         module.visited_backwards = True
 

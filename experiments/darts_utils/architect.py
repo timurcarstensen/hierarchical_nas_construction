@@ -24,7 +24,7 @@ class Architect:
         )
 
     def _compute_unrolled_model(
-        self, input, target, eta, network_optimizer
+        self, input, target, eta, network_optimizer,
     ):
         loss = self.model._loss(input, target)
         theta = _concat(self.model.parameters()).data
@@ -37,14 +37,13 @@ class Architect:
             moment = torch.zeros_like(theta)
         dtheta = (
             _concat(
-                torch.autograd.grad(loss, self.model.parameters())
+                torch.autograd.grad(loss, self.model.parameters()),
             ).data
             + self.network_weight_decay * theta
         )
-        unrolled_model = self._construct_model_from_theta(
-            theta.sub(eta, moment + dtheta)
+        return self._construct_model_from_theta(
+            theta.sub(eta, moment + dtheta),
         )
-        return unrolled_model
 
     def step(
         self,
@@ -93,7 +92,7 @@ class Architect:
         network_optimizer,
     ):
         unrolled_model = self._compute_unrolled_model(
-            input_train, target_train, eta, network_optimizer
+            input_train, target_train, eta, network_optimizer,
         )
         unrolled_loss = unrolled_model._loss(input_valid, target_valid)
 
@@ -101,13 +100,13 @@ class Architect:
         dalpha = [v.grad for v in unrolled_model.arch_parameters()]
         vector = [v.grad.data for v in unrolled_model.parameters()]
         implicit_grads = self._hessian_vector_product(
-            vector, input_train, target_train
+            vector, input_train, target_train,
         )
 
-        for g, ig in zip(dalpha, implicit_grads):
+        for g, ig in zip(dalpha, implicit_grads, strict=False):
             g.data.sub_(eta, ig.data)
 
-        for v, g in zip(self.model.arch_parameters(), dalpha):
+        for v, g in zip(self.model.arch_parameters(), dalpha, strict=False):
             if v.grad is None:
                 v.grad = Variable(g.data)
             else:
@@ -131,17 +130,17 @@ class Architect:
 
     def _hessian_vector_product(self, vector, input, target, r=1e-2):
         R = r / _concat(vector).norm()
-        for p, v in zip(self.model.parameters(), vector):
+        for p, v in zip(self.model.parameters(), vector, strict=False):
             p.data.add_(R, v)
         loss = self.model._loss(input, target)
         grads_p = torch.autograd.grad(loss, self.model.arch_parameters())
 
-        for p, v in zip(self.model.parameters(), vector):
+        for p, v in zip(self.model.parameters(), vector, strict=False):
             p.data.sub_(2 * R, v)
         loss = self.model._loss(input, target)
         grads_n = torch.autograd.grad(loss, self.model.arch_parameters())
 
-        for p, v in zip(self.model.parameters(), vector):
+        for p, v in zip(self.model.parameters(), vector, strict=False):
             p.data.add_(R, v)
 
-        return [(x - y).div_(2 * R) for x, y in zip(grads_p, grads_n)]
+        return [(x - y).div_(2 * R) for x, y in zip(grads_p, grads_n, strict=False)]

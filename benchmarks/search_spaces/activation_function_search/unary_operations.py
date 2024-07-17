@@ -7,7 +7,7 @@ class UnaryOperation(AbstractPrimitive):
     trainable = False
 
     def __init__(
-        self, **kwargs
+        self, **kwargs,
     ):  # pylint:disable=W0613
         super().__init__(locals())
 

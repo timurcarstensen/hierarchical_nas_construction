@@ -10,6 +10,13 @@ from pathlib import Path
 import numpy as np
 import torch
 import yaml
+from benchmarks.objectives.addNIST import AddNISTObjective
+from benchmarks.objectives.cifarTile import CifarTileObjective
+from benchmarks.objectives.hierarchical_nb201 import NB201Pipeline
+from benchmarks.search_spaces.hierarchical_nb201.graph import (
+    NB201_HIERARCHIES_CONSIDERED,
+    NB201Spaces,
+)
 from neps.optimizers.bayesian_optimization.kernels import (
     GraphKernelMapping,
 )
@@ -19,14 +26,6 @@ from neps.optimizers.bayesian_optimization.models.gp_hierarchy import (
 from neps.search_spaces.graph_grammar.primitives import AbstractPrimitive
 from neps.search_spaces.search_space import SearchSpace
 from scipy import stats
-
-from benchmarks.objectives.addNIST import AddNISTObjective
-from benchmarks.objectives.cifarTile import CifarTileObjective
-from benchmarks.objectives.hierarchical_nb201 import NB201Pipeline
-from benchmarks.search_spaces.hierarchical_nb201.graph import (
-    NB201_HIERARCHIES_CONSIDERED,
-    NB201Spaces,
-)
 
 ConfigResult = collections.namedtuple("ConfigResult", ["config", "result"])
 
@@ -57,15 +56,14 @@ def read_data(
         for s in os.listdir(working_directory / f):
             if (
                 "bug" in s
-                or (rs_only and "random_search" != f)
+                or (rs_only and f != "random_search")
                 or ("fixed_1_none" in str(working_directory) and "gp_evo" in f)
                 or not os.path.isdir(working_directory / f / s)
                 or "naswot" in f
             ):
                 continue
             results_dir = working_directory / f / s / "results"
-            print(results_dir)
-            previous_results = dict()
+            previous_results = {}
             for config_dir in results_dir.iterdir():
                 config_id = config_dir.name[len("config_") :]
                 result_file = config_dir / "result.yaml"
@@ -118,7 +116,7 @@ parser.add_argument(
 )
 parser.add_argument("--n_train", type=int, default=100)
 parser.add_argument(
-    "--log", action="store_true", help="Whether to report the results in log scale"
+    "--log", action="store_true", help="Whether to report the results in log scale",
 )
 parser.add_argument("--seeds", nargs="*", default=list(range(20)))
 parser.add_argument(
@@ -151,12 +149,12 @@ if not args.DEBUG:
 idx = args.search_space.find("_")
 dataset = args.objective[args.objective.find("_") + 1 :]
 search_space = SearchSpaceMapping[args.search_space[:idx]](
-    space=args.search_space[idx + 1 :], dataset=dataset
+    space=args.search_space[idx + 1 :], dataset=dataset,
 )
-search_space = SearchSpace(**{"architecture": search_space})
+search_space = SearchSpace(architecture=search_space)
 
 configs, y = read_data(
-    args.working_directory, ylog=args.log, debug_mode=args.DEBUG, rs_only=args.rs_only
+    args.working_directory, ylog=args.log, debug_mode=args.DEBUG, rs_only=args.rs_only,
 )
 all_dict = {}
 n_train = args.n_train
@@ -263,9 +261,6 @@ for seed in args.seeds:
     y_pred_std = np.sqrt(y_pred_var)
     nll = -np.mean(stats.norm.logpdf(np.array(y_test), loc=y_pred, scale=y_pred_std))
 
-    print(
-        f"seed={seed}, n_test={len(y_test)}: pearson={pearson :.3f}, spearman={spearman :.3f}, kendalltau={kendalltau :.3f}, NLL={nll}"
-    )
 
     all_dict["pearson"] = float(pearson)
     all_dict["spearman"] = float(spearman)

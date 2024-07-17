@@ -16,8 +16,8 @@
 import types
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 from . import measure
 from .p_utils import get_layer_metric_array, reshape_elements
@@ -25,7 +25,7 @@ from .p_utils import get_layer_metric_array, reshape_elements
 
 def fisher_forward_conv2d(self, x):
     x = F.conv2d(
-        x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups
+        x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups,
     )
     # intercept and store the activations after passing through 'hooked' identity op
     self.act = self.dummy(x)
@@ -48,7 +48,7 @@ def compute_fisher_per_weight(net, inputs, targets, loss_fn, mode, split_data=1)
 
     net.train()
     for layer in net.modules():
-        if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear):
+        if isinstance(layer, nn.Conv2d | nn.Linear):
             # variables/op needed for fisher computation
             layer.fisher = None
             layer.act = 0.0
@@ -63,7 +63,7 @@ def compute_fisher_per_weight(net, inputs, targets, loss_fn, mode, split_data=1)
             # function to call during backward pass (hooked on identity op at output of layer)
             def hook_factory(layer):
                 def hook(
-                    module, grad_input, grad_output
+                    module, grad_input, grad_output,
                 ):  # pylint: disable=unused-argument
                     act = layer.act.detach()
                     grad = grad_output[0].detach()
@@ -109,6 +109,4 @@ def compute_fisher_per_weight(net, inputs, targets, loss_fn, mode, split_data=1)
     # TODO cleanup on the selectors/apply_prune_mask side (?)
     shapes = get_layer_metric_array(net, lambda l: l.weight.shape[1:], mode)
 
-    grads_abs = reshape_elements(grads_abs_ch, shapes, device)
-
-    return grads_abs
+    return reshape_elements(grads_abs_ch, shapes, device)

@@ -14,7 +14,7 @@ def network_weight_gaussian_init(net: nn.Module):
                 nn.init.normal_(m.weight)
                 if hasattr(m, "bias") and m.bias is not None:
                     nn.init.zeros_(m.bias)
-            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+            elif isinstance(m, nn.BatchNorm2d | nn.GroupNorm):
                 if m.weight is None:
                     continue
                 nn.init.ones_(m.weight)
@@ -46,10 +46,10 @@ def compute_zen_score(
     dtype = torch.half if fp16 else torch.float32
 
     with torch.no_grad():
-        for repeat_count in range(repeat):  # pylint: disable=unused-variable
+        for _repeat_count in range(repeat):  # pylint: disable=unused-variable
             network_weight_gaussian_init(net)
             input = torch.randn(  # pylint: disable=redefined-builtin
-                size=list(inputs.shape), device=device, dtype=dtype
+                size=list(inputs.shape), device=device, dtype=dtype,
             )
             input2 = torch.randn(size=list(inputs.shape), device=device, dtype=dtype)
             mixup_input = input + mixup_gamma * input2
@@ -71,6 +71,4 @@ def compute_zen_score(
             nas_score = torch.log(nas_score) + log_bn_scaling_factor
             nas_score_list.append(float(nas_score))
 
-    avg_nas_score = float(np.mean(nas_score_list))
-
-    return avg_nas_score
+    return float(np.mean(nas_score_list))

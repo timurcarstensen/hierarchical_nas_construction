@@ -2,14 +2,13 @@ import itertools
 import os
 from copy import deepcopy
 
+import benchmarks.search_spaces.darts_cnn.primitives as darts_primitives
+from benchmarks.search_spaces.darts_cnn.topologies import DARTSCell
 from neps.search_spaces.graph_grammar.api import FunctionParameter
 from neps.search_spaces.graph_grammar.cfg_variants.constrained_cfg import (
     Constraint,
 )
 from path import Path
-
-import benchmarks.search_spaces.darts_cnn.primitives as darts_primitives
-from benchmarks.search_spaces.darts_cnn.topologies import DARTSCell
 
 DIR_PATH = Path(os.path.dirname(os.path.realpath(__file__)))
 
@@ -64,7 +63,7 @@ def build(
     ops = [split[: split.find(")")] for split in darts_id_op_splitted[1:]]
     darts_id_node_splitted = darts_id.split("IN")
     in_nodes = [int(split[2]) for split in darts_id_node_splitted[1:]]
-    return [(op, in_node) for op, in_node in zip(ops, in_nodes)]
+    return list(zip(ops, in_nodes, strict=False))
 
 
 class DARTSSpace:
@@ -95,13 +94,12 @@ class DARTSSpace:
     @staticmethod
     def _read_grammar(grammar_file: str) -> str:
         with open(Path(DIR_PATH) / grammar_file) as f:
-            productions = f.read()
-        return productions
+            return f.read()
 
 
 def darts_constraint():
     class DARTSConstraint(Constraint):
-        def __init__(self, current_derivation: str = None) -> None:
+        def __init__(self, current_derivation: str | None = None) -> None:
             super().__init__(current_derivation)
 
         @staticmethod
@@ -112,18 +110,15 @@ def darts_constraint():
 
         def get_not_allowed_productions(self, productions: list):
             idx = self.current_derivation.index(None)
-            if idx % 2 == 0:
+            if idx % 2 == 0 or idx % 4 == 1:
                 return []
             else:
-                if idx % 4 == 1:
-                    return []
-                else:
-                    other_val = self.current_derivation[idx - 2].split(" ")[-1][:-1]
-                    return [
-                        production
-                        for production in productions
-                        if production.rhs()[0] == other_val
-                    ]
+                other_val = self.current_derivation[idx - 2].split(" ")[-1][:-1]
+                return [
+                    production
+                    for production in productions
+                    if production.rhs()[0] == other_val
+                ]
 
         def update_context(self, new_part: str):
             idx = self.current_derivation.index(None)
@@ -165,7 +160,7 @@ def darts_constraint():
 
         @staticmethod
         def mutate_not_allowed_productions(
-            nonterminal: str, before: str, after: str, possible_productions: list
+            nonterminal: str, before: str, after: str, possible_productions: list,
         ):
             if "IN" not in nonterminal:
                 return []
@@ -186,7 +181,6 @@ def darts_constraint():
 
 
 if __name__ == "__main__":
-    import math
 
     from hierarchical_nas_benchmarks.search_spaces.darts_cnn.genotypes import (
         DrNAS_cifar10,
@@ -207,16 +201,11 @@ if __name__ == "__main__":
 
     DIR_PATH = Path(os.path.dirname(os.path.realpath(__file__)))
 
-    pipeline_space = dict(
-        normal=DARTSSpace(return_graph_per_hierarchy=False),
-        reduce=DARTSSpace(return_graph_per_hierarchy=False),
-    )
+    pipeline_space = {
+        "normal": DARTSSpace(return_graph_per_hierarchy=False),
+        "reduce": DARTSSpace(return_graph_per_hierarchy=False),
+    }
     pipeline_space = SearchSpace(**pipeline_space)
-    print(
-        "benchmark",
-        pipeline_space.hyperparameters["normal"].search_space_size,
-        math.log10(pipeline_space.hyperparameters["normal"].search_space_size),
-    )
 
     pipeline_space = pipeline_space.sample()
     _ = pipeline_space.mutate()
@@ -226,7 +215,7 @@ if __name__ == "__main__":
         {
             "normal": "(CELL DARTS (OP sep_conv_3x3) (IN1 0) (OP sep_conv_5x5) (IN1 1) (OP sep_conv_3x3) (IN2 1) (OP sep_conv_3x3) (IN2 2) (OP skip_connect) (IN3 0) (OP sep_conv_3x3) (IN3 1) (OP sep_conv_3x3) (IN4 2) (OP dil_conv_5x5) (IN4 3))",
             "reduce": "(CELL DARTS (OP max_pool_3x3) (IN1 0) (OP sep_conv_5x5) (IN1 1) (OP dil_conv_5x5) (IN2 2) (OP sep_conv_5x5) (IN2 1) (OP sep_conv_5x5) (IN3 1) (OP dil_conv_5x5) (IN3 3) (OP skip_connect) (IN4 4) (OP sep_conv_5x5) (IN4 1))",
-        }
+        },
     )
 
     normal = pipeline_space.hyperparameters["normal"].to_pytorch()
@@ -239,7 +228,7 @@ if __name__ == "__main__":
     plot_from_graph(hp_values["graphs"][1], DIR_PATH / "own_drnas_reduce")
 
     genotype = Genotype(
-        normal=normal, normal_concat=range(2, 6), reduce=reduce, reduce_concat=range(2, 6)
+        normal=normal, normal_concat=range(2, 6), reduce=reduce, reduce_concat=range(2, 6),
     )
     plot(genotype=genotype.normal, filename=DIR_PATH / "drnas_normal")
     plot(genotype=genotype.reduce, filename=DIR_PATH / "drnas_reduce")
@@ -249,17 +238,17 @@ if __name__ == "__main__":
         {
             "normal": "(CELL DARTS (OP skip_connect) (IN1 1) (OP sep_conv_3x3) (IN1 0) (OP sep_conv_3x3) (IN2 1) (OP max_pool_3x3) (IN2 0) (OP sep_conv_5x5) (IN3 1) (OP sep_conv_3x3) (IN3 0) (OP dil_conv_5x5) (IN4 2) (OP sep_conv_3x3) (IN4 1))",
             "reduce": "(CELL DARTS (OP skip_connect) (IN1 1) (OP sep_conv_3x3) (IN1 0) (OP sep_conv_3x3) (IN2 1) (OP max_pool_3x3) (IN2 0) (OP sep_conv_5x5) (IN3 1) (OP sep_conv_3x3) (IN3 0) (OP dil_conv_5x5) (IN4 2) (OP sep_conv_3x3) (IN4 1))",
-        }
+        },
     )
     hp_values = pipeline_space.get_normalized_hp_categories()
     plot_from_graph(hp_values["graphs"][0], DIR_PATH / "own_bananas")
     normal = pipeline_space.hyperparameters["normal"].to_pytorch()
     reduce = pipeline_space.hyperparameters["reduce"].to_pytorch()
     genotype = Genotype(
-        normal=normal, normal_concat=range(2, 6), reduce=reduce, reduce_concat=range(2, 6)
+        normal=normal, normal_concat=range(2, 6), reduce=reduce, reduce_concat=range(2, 6),
     )
     plot(genotype=genotype.normal, filename=DIR_PATH / "bananas")
 
     model = NetworkCIFAR(
-        C=36, num_classes=10, layers=20, auxiliary=True, genotype=genotype
+        C=36, num_classes=10, layers=20, auxiliary=True, genotype=genotype,
     )

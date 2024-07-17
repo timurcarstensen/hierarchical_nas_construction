@@ -12,14 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # =============================================================================
-"""
-This contains implementations of jacov based on
+"""This contains implementations of jacov based on
 https://github.com/BayesWatch/nas-without-training (jacov).
 This script was based on
 https://github.com/SamsungLabs/zero-cost-nas/blob/main/foresight/pruners/measures/jacob_cov.py
 We found this version of jacov tends to perform
 better.
-Author: Robin Ru @ University of Oxford
+Author: Robin Ru @ University of Oxford.
 """
 
 import numpy as np
@@ -50,15 +49,14 @@ def eval_score(jacob, labels=None):  # pylint: disable=unused-argument
 
 @measure("jacov", bn=True)
 def compute_jacob_cov(
-    net, inputs, targets, split_data=1, loss_fn=None  # pylint: disable=unused-argument
+    net, inputs, targets, split_data=1, loss_fn=None,  # pylint: disable=unused-argument
 ):
     try:
         # Compute gradients (but don't apply them)
         jacobs, labels = get_batch_jacobian(net, inputs, targets)
         jacobs = jacobs.reshape(jacobs.size(0), -1).cpu().numpy()
         jc = eval_score(jacobs, labels)
-    except Exception as e:
-        print(e)
+    except Exception:
         jc = np.nan
 
     return jc

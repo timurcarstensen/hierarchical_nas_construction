@@ -1,5 +1,4 @@
 import argparse
-import collections
 import os
 import random
 import shutil
@@ -58,7 +57,7 @@ def process_torch_dataset(name, location, verbose=True, return_data=False):
         (train_x, train_y, _), (test_x, test_y) = load_addnist_data()
     elif name == "Language":
         (train_x, train_y), (test_x, test_y) = load_language_data(
-            metainfo=False, verbose=False
+            metainfo=False, verbose=False,
         )
     elif name == "Gutenberg":
         (train_x, train_y), (test_x, test_y) = load_gutenberg()
@@ -71,7 +70,7 @@ def process_torch_dataset(name, location, verbose=True, return_data=False):
             train=True,
             download=download,
             transform=transforms.Compose(
-                [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]
+                [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))],
             ),
         )
         test_data = datasets.FashionMNIST(
@@ -79,11 +78,11 @@ def process_torch_dataset(name, location, verbose=True, return_data=False):
             train=False,
             download=download,
             transform=transforms.Compose(
-                [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]
+                [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))],
             ),
         )
-        train_x, train_y = zip(*train_data)
-        test_x, test_y = zip(*test_data)
+        train_x, train_y = zip(*train_data, strict=False)
+        test_x, test_y = zip(*test_data, strict=False)
         train_x = tlist_to_numpy(train_x)
         test_x = tlist_to_numpy(test_x)
         train_x, train_y = np.stack(train_x), np.array(train_y)
@@ -94,18 +93,15 @@ def process_torch_dataset(name, location, verbose=True, return_data=False):
 
     # split train data into train and valid
     train_x, valid_x, train_y, valid_y = tts(
-        train_x, train_y, train_size=45000, test_size=15000
+        train_x, train_y, train_size=45000, test_size=15000,
     )
 
     # print out stats of label distribution across classes
     def sort_counter(c):
-        return sorted(list(c.items()), key=lambda x: x[0])
+        return sorted(c.items(), key=lambda x: x[0])
 
     if verbose:
-        print("=== {} ===".format(name))
-        print("Train Bal:", sort_counter(collections.Counter(train_y)))
-        print("Valid Bal:", sort_counter(collections.Counter(valid_y)))
-        print("Test Bal:", sort_counter(collections.Counter(test_y)))
+        pass
 
     # randomly shuffle arrays
     train_shuff = np.arange(len(train_y))
@@ -120,17 +116,7 @@ def process_torch_dataset(name, location, verbose=True, return_data=False):
 
     # print out data shapes of each split
     if verbose:
-        print(
-            "{} |  Train: {}, {} | Valid: {}, {} | Test: {}, {} |".format(
-                name,
-                train_x.shape,
-                train_y.shape,
-                valid_x.shape,
-                valid_y.shape,
-                test_x.shape,
-                test_y.shape,
-            )
-        )
+        pass
 
     # name and tag datasets
     dataset_path = os.path.join(location, name)
@@ -148,7 +134,7 @@ def process_torch_dataset(name, location, verbose=True, return_data=False):
     np.save(dataset_path + "/valid_y.npy", valid_y, allow_pickle=False)
     np.save(dataset_path + "/test_x.npy", test_x, allow_pickle=False)
     np.save(dataset_path + "/test_y.npy", test_y, allow_pickle=False)
-    print(f"Processed dataset {name}")
+    return None
 
 
 if __name__ == "__main__":
@@ -169,12 +155,12 @@ if __name__ == "__main__":
         process_torch_dataset(dataset, location=base_path)
         full_path = os.path.join(base_path, dataset)
         x, y = load_data(full_path)
-        if dataset == "AddNIST" or dataset == "MultNIST":
+        if dataset in ("AddNIST", "MultNIST"):
             show_mnist_examples(x, y, save_image_path + f"/{dataset}.png")
         elif dataset == "FashionMNIST":
             show_fashionMNIST_examples(x, y, save_image_path + f"/{dataset}.png")
         elif dataset == "CIFARTile":
             show_CIFARTile(x, y, save_image_path + f"/{dataset}.png")
         else:
-            print("WARNING: No visualizer for examples!")
+            pass
     shutil.rmtree("raw_data")

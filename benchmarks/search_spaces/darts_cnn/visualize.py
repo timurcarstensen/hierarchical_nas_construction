@@ -7,17 +7,17 @@ from path import Path
 def plot(genotype, filename):
     g = Digraph(
         format="pdf",
-        edge_attr=dict(fontsize="20", fontname="times"),
-        node_attr=dict(
-            style="filled",
-            shape="rect",
-            align="center",
-            fontsize="20",
-            height="0.5",
-            width="0.5",
-            penwidth="2",
-            fontname="times",
-        ),
+        edge_attr={"fontsize": "20", "fontname": "times"},
+        node_attr={
+            "style": "filled",
+            "shape": "rect",
+            "align": "center",
+            "fontsize": "20",
+            "height": "0.5",
+            "width": "0.5",
+            "penwidth": "2",
+            "fontname": "times",
+        },
         engine="dot",
     )
     g.body.extend(["rankdir=LR"])
@@ -54,17 +54,17 @@ def plot(genotype, filename):
 def plot_from_graph(graph, filename, node_attr: bool = True):
     g = Digraph(
         format="pdf",
-        edge_attr=dict(fontsize="20", fontname="times"),
-        node_attr=dict(
-            style="filled",
-            shape="rect",
-            align="center",
-            fontsize="20",
-            height="0.5",
-            width="0.5",
-            penwidth="2",
-            fontname="times",
-        ),
+        edge_attr={"fontsize": "20", "fontname": "times"},
+        node_attr={
+            "style": "filled",
+            "shape": "rect",
+            "align": "center",
+            "fontsize": "20",
+            "height": "0.5",
+            "width": "0.5",
+            "penwidth": "2",
+            "fontname": "times",
+        },
         engine="dot",
     )
     g.body.extend(["rankdir=LR"])
@@ -74,7 +74,7 @@ def plot_from_graph(graph, filename, node_attr: bool = True):
             op_name = data["op_name"]
             if "input" in op_name:
                 g.node(str(n), op_name, fillcolor="darkseagreen2")
-            elif "output" == op_name:
+            elif op_name == "output":
                 g.node(str(n), op_name, fillcolor="palegoldenrod")
             elif op_name == "add":
                 g.node(str(n), op_name, fillcolor="gray", shape="ellipse")

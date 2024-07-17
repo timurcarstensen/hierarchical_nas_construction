@@ -65,15 +65,15 @@ def _load_npy_data(dataset, path):
 
     if dataset == "addNIST":
         train_x = np.load(os.path.join(path, "train_x.npy")).transpose(
-            (0, 2, 3, 1)
+            (0, 2, 3, 1),
         )
         train_y = np.load(os.path.join(path, "train_y.npy"))
         valid_x = np.load(os.path.join(path, "valid_x.npy")).transpose(
-            (0, 2, 3, 1)
+            (0, 2, 3, 1),
         )
         valid_y = np.load(os.path.join(path, "valid_y.npy"))
         test_x = np.load(os.path.join(path, "test_x.npy")).transpose(
-            (0, 2, 3, 1)
+            (0, 2, 3, 1),
         )
         test_y = np.load(os.path.join(path, "test_y.npy"))
         # train_x = normalize(train_x)
@@ -82,15 +82,15 @@ def _load_npy_data(dataset, path):
         return train_x, train_y, valid_x, valid_y, test_x, test_y
     elif dataset == "cifarTile":
         train_x = np.load(os.path.join(path, "train_x.npy")).transpose(
-            (0, 2, 3, 1)
+            (0, 2, 3, 1),
         )
         train_y = np.load(os.path.join(path, "train_y.npy"))
         valid_x = np.load(os.path.join(path, "valid_x.npy")).transpose(
-            (0, 2, 3, 1)
+            (0, 2, 3, 1),
         )
         valid_y = np.load(os.path.join(path, "valid_y.npy"))
         test_x = np.load(os.path.join(path, "test_x.npy")).transpose(
-            (0, 2, 3, 1)
+            (0, 2, 3, 1),
         )
         test_y = np.load(os.path.join(path, "test_y.npy"))
         return train_x, train_y, valid_x, valid_y, test_x, test_y
@@ -108,17 +108,17 @@ def _get_transforms(dataset, args=None):
                 # transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(FMNIST_MEAN, FMNIST_STD),
-            ]
+            ],
         )
         if args is not None and "cutout" in args and args.cutout:
             train_transform.transforms.append(
-                Cutout(args.cutout_length, args.cutout_prob)
+                Cutout(args.cutout_length, args.cutout_prob),
             )
         valid_transform = transforms.Compose(
             [
                 transforms.ToTensor(),
                 transforms.Normalize(FMNIST_MEAN, FMNIST_STD),
-            ]
+            ],
         )
     elif dataset == "cifar10":
         CIFAR_MEAN = [0.49139968, 0.48215827, 0.44653124]
@@ -129,17 +129,17 @@ def _get_transforms(dataset, args=None):
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
-            ]
+            ],
         )
         if args is not None and "cutout" in args and args.cutout:
             train_transform.transforms.append(
-                Cutout(args.cutout_length, args.cutout_prob)
+                Cutout(args.cutout_length, args.cutout_prob),
             )
         valid_transform = transforms.Compose(
             [
                 transforms.ToTensor(),
                 transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
-            ]
+            ],
         )
     elif dataset == "cifar100":
         CIFAR_MEAN = [0.5071, 0.4865, 0.4409]
@@ -151,18 +151,18 @@ def _get_transforms(dataset, args=None):
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
-            ]
+            ],
         )
         if args is not None and "cutout" in args and args.cutout:
             train_transform.transforms.append(
-                Cutout(args.cutout_length, args.cutout_prob)
+                Cutout(args.cutout_length, args.cutout_prob),
             )
 
         valid_transform = transforms.Compose(
             [
                 transforms.ToTensor(),
                 transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
-            ]
+            ],
         )
     elif dataset == "ImageNet16-120":
         IMAGENET16_MEAN = [x / 255 for x in [122.68, 116.66, 104.01]]
@@ -174,18 +174,18 @@ def _get_transforms(dataset, args=None):
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(IMAGENET16_MEAN, IMAGENET16_STD),
-            ]
+            ],
         )
         if args.cutout:
             train_transform.transforms.append(
-                Cutout(args.cutout_length, args.cutout_prob)
+                Cutout(args.cutout_length, args.cutout_prob),
             )
 
         valid_transform = transforms.Compose(
             [
                 transforms.ToTensor(),
                 transforms.Normalize(IMAGENET16_MEAN, IMAGENET16_STD),
-            ]
+            ],
         )
     elif dataset == "svhn":
         SVHN_MEAN = [0.4377, 0.4438, 0.4728]
@@ -197,40 +197,29 @@ def _get_transforms(dataset, args=None):
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(SVHN_MEAN, SVHN_STD),
-            ]
+            ],
         )
         if args is not None and "cutout" in args and args.cutout:
             train_transform.transforms.append(
-                Cutout(args.cutout_length, args.cutout_prob)
+                Cutout(args.cutout_length, args.cutout_prob),
             )
 
         valid_transform = transforms.Compose(
             [
                 transforms.ToTensor(),
                 transforms.Normalize(SVHN_MEAN, SVHN_STD),
-            ]
+            ],
         )
-    elif dataset == "addNIST":
+    elif dataset in ("addNIST", "cifarTile"):
         train_transform = transforms.Compose(
             [
                 transforms.ToTensor(),
-            ]
+            ],
         )
         valid_transform = transforms.Compose(
             [
                 transforms.ToTensor(),
-            ]
-        )
-    elif dataset == "cifarTile":
-        train_transform = transforms.Compose(
-            [
-                transforms.ToTensor(),
-            ]
-        )
-        valid_transform = transforms.Compose(
-            [
-                transforms.ToTensor(),
-            ]
+            ],
         )
     else:
         raise ValueError(f"Unknown dataset: {dataset}")
@@ -249,7 +238,7 @@ def get_train_val_test_loaders(
     train_transform, valid_transform = _get_transforms(dataset)
     if dataset == "fashionMNIST":
         train_data = dset.FashionMNIST(
-            root=data, download=True, transform=train_transform
+            root=data, download=True, transform=train_transform,
         )
         test_data = dset.FashionMNIST(
             root=data,
@@ -299,31 +288,7 @@ def get_train_val_test_loaders(
     elif dataset == "ImageNet16-120":
         raise NotImplementedError
 
-    elif dataset == "addNIST":
-        train_x, train_y, valid_x, valid_y, test_x, test_y = (
-            _load_npy_data(dataset, data)
-        )
-        train_dataset = HelperDataset(train_x, train_y, train_transform)
-        valid_dataset = HelperDataset(valid_x, valid_y, valid_transform)
-        test_dataset = HelperDataset(test_x, test_y, valid_transform)
-        train_loader = torch.utils.data.DataLoader(
-            dataset=train_dataset,
-            batch_size=int(batch_size),
-            shuffle=False,
-            num_workers=num_workers,
-        )
-        valid_loader = torch.utils.data.DataLoader(
-            dataset=valid_dataset,
-            batch_size=int(batch_size),
-            num_workers=num_workers,
-        )
-        test_loader = torch.utils.data.DataLoader(
-            dataset=test_dataset,
-            batch_size=int(batch_size),
-            num_workers=num_workers,
-        )
-        return train_loader, valid_loader, test_loader
-    elif dataset == "cifarTile":
+    elif dataset in ("addNIST", "cifarTile"):
         train_x, train_y, valid_x, valid_y, test_x, test_y = (
             _load_npy_data(dataset, data)
         )
@@ -367,7 +332,7 @@ def get_train_val_test_loaders(
             train_data,
             batch_size=batch_size,
             sampler=torch.utils.data.sampler.SubsetRandomSampler(
-                indices[:split]
+                indices[:split],
             ),
             pin_memory=False,
             num_workers=num_workers,
@@ -377,7 +342,7 @@ def get_train_val_test_loaders(
             valid_data,
             batch_size=batch_size,
             sampler=torch.utils.data.sampler.SubsetRandomSampler(
-                indices[split:num_train]
+                indices[split:num_train],
             ),
             pin_memory=False,
             num_workers=num_workers,
@@ -398,27 +363,27 @@ def get_train_val_test_loaders(
 def get_optimizer(optimizer: str, model: torch.nn.Module, **optim_kwargs):
     if optimizer not in dir(torch.optim):
         raise ValueError(
-            f"PyTorch has not implemented optimizer {optimizer} yet!"
+            f"PyTorch has not implemented optimizer {optimizer} yet!",
         )
     return getattr(torch.optim, optimizer)(
-        model.parameters(), **optim_kwargs
+        model.parameters(), **optim_kwargs,
     )
 
 
 def get_scheduler(scheduler: str, optimizer, **scheduler_kwargs):
     if scheduler not in dir(torch.optim.lr_scheduler):
         raise ValueError(
-            f"PyTorch has not implemented scheduler {scheduler} yet!"
+            f"PyTorch has not implemented scheduler {scheduler} yet!",
         )
     return getattr(torch.optim.lr_scheduler, scheduler)(
-        optimizer, **scheduler_kwargs
+        optimizer, **scheduler_kwargs,
     )
 
 
 def get_loss(loss_function: str, **loss_kwargs):
     if loss_function not in dir(torch.nn):
         raise ValueError(
-            f"PyTorch has not implemented loss function {loss_function} yet!"
+            f"PyTorch has not implemented loss function {loss_function} yet!",
         )
     return getattr(torch.nn, loss_function)(**loss_kwargs)
 
@@ -426,6 +391,6 @@ def get_loss(loss_function: str, **loss_kwargs):
 def get_evaluation_metric(metric: str, **metrics_kwargs):
     if metric not in dir(torchmetrics):
         raise ValueError(
-            f"Torchmetrics has not implemented metric {metric} yet!"
+            f"Torchmetrics has not implemented metric {metric} yet!",
         )
     return getattr(torchmetrics, metric)(**metrics_kwargs)

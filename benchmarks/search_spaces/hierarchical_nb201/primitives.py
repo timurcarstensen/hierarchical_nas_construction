@@ -12,9 +12,9 @@ class ResNetBasicblock(AbstractPrimitive):
         track_running_stats: bool = True,
     ):
         super().__init__(locals())
-        assert stride == 1 or stride == 2, f"invalid stride {stride}"
+        assert stride in (1, 2), f"invalid stride {stride}"
         self.conv_a = ReLUConvBN(
-            C_in, C_out, 3, stride, 1, 1, affine, track_running_stats
+            C_in, C_out, 3, stride, 1, 1, affine, track_running_stats,
         )
         self.conv_b = ReLUConvBN(C_out, C_out, 3, 1, 1, 1, affine, track_running_stats)
         if stride == 2:
@@ -24,7 +24,7 @@ class ResNetBasicblock(AbstractPrimitive):
             )
         elif C_in != C_out:
             self.downsample = ReLUConvBN(
-                C_in, C_out, 1, 1, 0, 1, affine, track_running_stats
+                C_in, C_out, 1, 1, 0, 1, affine, track_running_stats,
             )
         else:
             self.downsample = None
@@ -37,10 +37,7 @@ class ResNetBasicblock(AbstractPrimitive):
         basicblock = self.conv_a(inputs)
         basicblock = self.conv_b(basicblock)
 
-        if self.downsample is not None:
-            residual = self.downsample(inputs)
-        else:
-            residual = inputs
+        residual = self.downsample(inputs) if self.downsample is not None else inputs
         return residual + basicblock
 
 
@@ -100,7 +97,7 @@ class POOLING(AbstractPrimitive):
             self.preprocess = None
         else:
             self.preprocess = ReLUConvBN(
-                C_in, C_out, 1, 1, 0, 1, affine, track_running_stats
+                C_in, C_out, 1, 1, 0, 1, affine, track_running_stats,
             )
         self.mode = mode
         if mode == "avg":
@@ -111,10 +108,7 @@ class POOLING(AbstractPrimitive):
             raise ValueError(f"Invalid mode={mode} in POOLING")
 
     def forward(self, inputs):
-        if self.preprocess:
-            x = self.preprocess(inputs)
-        else:
-            x = inputs
+        x = self.preprocess(inputs) if self.preprocess else inputs
         return self.op(x)
 
     @property
@@ -124,12 +118,12 @@ class POOLING(AbstractPrimitive):
 
 class Conv(AbstractPrimitive):
     def __init__(
-        self, C_in: int, C_out: int, kernel_size: int, stride: int = 1, bias: bool = False
+        self, C_in: int, C_out: int, kernel_size: int, stride: int = 1, bias: bool = False,
     ):
         super().__init__(locals())
         pad = 0 if stride == 1 and kernel_size == 1 else 1
         self.conv = nn.Conv2d(
-            C_in, C_out, kernel_size, stride=stride, padding=pad, bias=bias
+            C_in, C_out, kernel_size, stride=stride, padding=pad, bias=bias,
         )
 
     def forward(self, x):

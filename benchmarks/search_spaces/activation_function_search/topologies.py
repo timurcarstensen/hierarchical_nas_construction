@@ -8,6 +8,6 @@ class BinaryTopo(AbstractTopology):
         super().__init__()
 
         self.name = f"binary_op_{edge_vals[0]}"
-        self.create_graph(dict(zip(self.edge_list, edge_vals)))
+        self.create_graph(dict(zip(self.edge_list, edge_vals, strict=False)))
         self.set_scope(self.name)
         self.graph_type = "edge_attr"

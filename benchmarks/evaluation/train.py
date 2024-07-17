@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -17,7 +17,7 @@ def general_num_params(m):
 
 
 def reset_weights(m):
-    if isinstance(m, torch.nn.Conv2d) or isinstance(m, torch.nn.Linear):
+    if isinstance(m, torch.nn.Conv2d | torch.nn.Linear):
         m.reset_parameters()
 
 
@@ -28,16 +28,14 @@ def train(
     loader: DataLoader,
     **train_args,
 ):
-    """
-    Trains a model on a given loader for one epoch.
-    """
+    """Trains a model on a given loader for one epoch."""
     model.train()
     grad_clip = (
-        train_args["grad_clip"] if "grad_clip" in train_args else None
+        train_args.get("grad_clip", None)
     )
     for data_blob in loader:
         device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu"
+            "cuda" if torch.cuda.is_available() else "cpu",
         )
         data, target = (x.to(device) for x in data_blob)
         optimizer.zero_grad()
@@ -72,14 +70,13 @@ def run_training(
     optimizer: Optimizer,
     scheduler,
     train_loader: DataLoader,
-    valid_loader: Optional[DataLoader],
-    test_loader: Optional[DataLoader],
+    valid_loader: DataLoader | None,
+    test_loader: DataLoader | None,
     n_epochs: int,
     eval_mode: bool = False,
     **train_args: Any,
-) -> Dict[str, Any]:
-    """
-    Run the training loop for a given number of epochs, including validation and testing.
+) -> dict[str, Any]:
+    """Run the training loop for a given number of epochs, including validation and testing.
     Returns a dictionary containing training results and statistics.
     """
     best_valid_score = 0
@@ -111,7 +108,7 @@ def run_training(
                 loader=test_loader,
             )
             if eval_mode:
-                print(test_score)
+                pass
             test_scores.append(test_score)
 
         scheduler.step()
@@ -149,6 +146,7 @@ def training_pipeline(
     """General training pipeline.
 
     Args:
+    ----
         model (torch.nn.Module): PyTorch model.
         train_criterion: Loss function.
         evaluation_metric (torchmetrics.Metric): Metric for outer loop. Needs to be maximized!
@@ -160,13 +158,15 @@ def training_pipeline(
         test_loader (torch.utils.data.DataLoader, optional): Test data loader. Defaults to None.
 
     Returns:
+    -------
         dict: Dictionary with results. If there is a valid_loader, there will be validation scores per epoch.
         Additionally, there will be an index indicating the epoch with highest validation score.
         Similarly, if there is a test_loader, there will be test scores per epoch. Note
         that there will be no best epoch index if no validation data is provided.
+
     """
     model.apply(fn=reset_weights)
-    results = run_training(
+    return run_training(
         model=model,
         train_criterion=train_criterion,
         optimizer=optimizer,
@@ -179,13 +179,12 @@ def training_pipeline(
         eval_mode=eval_mode,
         **train_args,
     )
-    return results
 
 
 if __name__ == "__main__":
     import argparse
 
-    import torchvision.models as models
+    from torchvision import models
 
     # pylint: disable=C0412
     from .utils import (
@@ -200,7 +199,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Train")
     parser.add_argument(
-        "--dataset", help="Dataset to select.", required=True
+        "--dataset", help="Dataset to select.", required=True,
     )
     parser.add_argument(
         "--data_path",
@@ -222,10 +221,10 @@ if __name__ == "__main__":
     train_criterion = get_loss("CrossEntropyLoss")
     evaluation_metric = get_evaluation_metric("Accuracy", top_k=1)
     optimizer = get_optimizer(
-        "SGD", model, lr=0.01, momentum=0.9, weight_decay=3e-4
+        "SGD", model, lr=0.01, momentum=0.9, weight_decay=3e-4,
     )
     scheduler = get_scheduler(
-        scheduler="CosineAnnealingLR", optimizer=optimizer, T_max=n_epochs
+        scheduler="CosineAnnealingLR", optimizer=optimizer, T_max=n_epochs,
     )
     train_loader, valid_loader, test_loader = get_train_val_test_loaders(
         dataset=args.dataset,
@@ -244,4 +243,3 @@ if __name__ == "__main__":
         test_loader=test_loader,
         n_epochs=n_epochs,
     )
-    print(res)

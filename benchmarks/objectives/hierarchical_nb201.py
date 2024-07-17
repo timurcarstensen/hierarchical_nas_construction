@@ -2,16 +2,9 @@ import os
 import time
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 import torch
-from neps.search_spaces.graph_grammar.graph import Graph
-from neps.search_spaces.search_space import SearchSpace
-from torch import nn
-from torch.utils.data import DataLoader
-from torchvision import datasets as dset
-from torchvision import transforms
-
 from benchmarks.evaluation.objective import Objective
 from benchmarks.objectives.custom_nb201.config_utils import load_config
 from benchmarks.objectives.custom_nb201.custom_augmentations import (
@@ -26,6 +19,12 @@ from benchmarks.objectives.custom_nb201.evaluate_utils import (
     obtain_accuracy,
     prepare_seed,
 )
+from neps.search_spaces.graph_grammar.graph import Graph
+from neps.search_spaces.search_space import SearchSpace
+from torch import nn
+from torch.utils.data import DataLoader
+from torchvision import datasets as dset
+from torchvision import transforms
 
 Dataset2Class = {
     "cifar10": 10,
@@ -42,15 +41,15 @@ Dataset2Class = {
 def get_dataset(
     name: str,
     root: str,
-    cutout: Optional[int] = -1,
-    use_trivial_augment: Optional[bool] = False,
+    cutout: int | None = -1,
+    use_trivial_augment: bool | None = False,
 ):
-    """
-    This function loads and preprocesses various image datasets, applying
+    """This function loads and preprocesses various image datasets, applying
     appropriate data augmentation and normalization techniques. It supports
     datasets such as CIFAR-10, CIFAR-100, ImageNet, and custom ImageNet16 variants.
 
     Args:
+    ----
         name: The name of the dataset to load. Supported options include
             'cifar10', 'cifar100', 'imagenet-1k', 'ImageNet16', 'ImageNet16-120',
             'ImageNet16-150', and 'ImageNet16-200'.
@@ -63,6 +62,7 @@ def get_dataset(
             NotImplementedError if set to True. Defaults to False.
 
     Returns:
+    -------
         A tuple containing four elements:
             - train_data: The training dataset with applied transformations.
             - test_data: The test/validation dataset with applied transformations.
@@ -70,18 +70,20 @@ def get_dataset(
             - class_num: The number of classes in the dataset.
 
     Raises:
+    ------
         TypeError: If an unknown dataset name is provided.
         NotImplementedError: If use_trivial_augment is set to True.
 
     Note:
+    ----
         - The function applies different normalization parameters and
           augmentation techniques based on the dataset.
         - For CIFAR and ImageNet16 datasets, it applies random horizontal flip,
           random crop, and optional cutout as augmentation techniques.
         - The function asserts the correct number of samples for each dataset
           to ensure data integrity.
-    """
 
+    """
     # normalizing the data
     if name == "cifar10":
         mean = [x / 255 for x in [125.3, 123.0, 113.9]]
@@ -98,10 +100,10 @@ def get_dataset(
         raise TypeError(f"Unknow dataset : {name}")
 
     # augmentation
-    if name == "cifar10" or name == "cifar100":
+    if name in ("cifar10", "cifar100"):
         if use_trivial_augment:
             raise NotImplementedError(
-                "Trivial augment impl. has to be added here!"
+                "Trivial augment impl. has to be added here!",
             )
         else:
             lists = [
@@ -114,13 +116,13 @@ def get_dataset(
                 lists += [CUTOUT(cutout)]
             train_transform = transforms.Compose(lists)
         test_transform = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize(mean, std)]
+            [transforms.ToTensor(), transforms.Normalize(mean, std)],
         )
         xshape = (1, 3, 32, 32)
     elif name.startswith("ImageNet16"):
         if use_trivial_augment:
             raise NotImplementedError(
-                "Trivial augment impl. has to be added here!"
+                "Trivial augment impl. has to be added here!",
             )
         else:
             lists = [
@@ -133,55 +135,59 @@ def get_dataset(
                 lists += [CUTOUT(cutout)]
             train_transform = transforms.Compose(lists)
         test_transform = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize(mean, std)]
+            [transforms.ToTensor(), transforms.Normalize(mean, std)],
         )
         xshape = (1, 3, 16, 16)
 
     # load datasets using torchvision
     if name == "cifar10":
         train_data = dset.CIFAR10(
-            root, train=True, transform=train_transform, download=True
+            root, train=True, transform=train_transform, download=True,
         )
         test_data = dset.CIFAR10(
-            root, train=False, transform=test_transform, download=True
+            root, train=False, transform=test_transform, download=True,
         )
-        assert len(train_data) == 50000 and len(test_data) == 10000
+        assert len(train_data) == 50000
+        assert len(test_data) == 10000
     elif name == "cifar100":
         train_data = dset.CIFAR100(
-            root, train=True, transform=train_transform, download=True
+            root, train=True, transform=train_transform, download=True,
         )
         test_data = dset.CIFAR100(
-            root, train=False, transform=test_transform, download=True
+            root, train=False, transform=test_transform, download=True,
         )
-        assert len(train_data) == 50000 and len(test_data) == 10000
+        assert len(train_data) == 50000
+        assert len(test_data) == 10000
     elif name.startswith("imagenet-1k"):
         train_data = dset.ImageFolder(
-            os.path.join(root, "train"), train_transform
+            os.path.join(root, "train"), train_transform,
         )
         test_data = dset.ImageFolder(
-            os.path.join(root, "val"), test_transform
+            os.path.join(root, "val"), test_transform,
         )
         assert (
             len(train_data) == 1281167 and len(test_data) == 50000
-        ), "invalid number of images : {:} & {:} vs {:} & {:}".format(
-            len(train_data), len(test_data), 1281167, 50000
-        )
+        ), f"invalid number of images : {len(train_data)} & {len(test_data)} vs {1281167} & {50000}"
     elif name == "ImageNet16":
         train_data = ImageNet16(root, True, train_transform)
         test_data = ImageNet16(root, False, test_transform)
-        assert len(train_data) == 1281167 and len(test_data) == 50000
+        assert len(train_data) == 1281167
+        assert len(test_data) == 50000
     elif name == "ImageNet16-120":
         train_data = ImageNet16(root, True, train_transform, 120)
         test_data = ImageNet16(root, False, test_transform, 120)
-        assert len(train_data) == 151700 and len(test_data) == 6000
+        assert len(train_data) == 151700
+        assert len(test_data) == 6000
     elif name == "ImageNet16-150":
         train_data = ImageNet16(root, True, train_transform, 150)
         test_data = ImageNet16(root, False, test_transform, 150)
-        assert len(train_data) == 190272 and len(test_data) == 7500
+        assert len(train_data) == 190272
+        assert len(test_data) == 7500
     elif name == "ImageNet16-200":
         train_data = ImageNet16(root, True, train_transform, 200)
         test_data = ImageNet16(root, False, test_transform, 200)
-        assert len(train_data) == 254775 and len(test_data) == 10000
+        assert len(train_data) == 254775
+        assert len(test_data) == 10000
     else:
         raise TypeError(f"Unknow dataset : {name}")
 
@@ -199,12 +205,10 @@ def get_dataloaders(
     use_trivial_augment: bool = False,
     eval_mode: bool = False,
 ):
-    """
-    Prepare and return data loaders for the specified dataset (CIFAR-10, CIFAR-100, or
+    """Prepare and return data loaders for the specified dataset (CIFAR-10, CIFAR-100, or
     ImageNet16). Sets up training and validation/testing loaders based on given parameters
      and configurations.
     """
-
     train_data, valid_data, xshape, class_num = get_dataset(
         name=dataset,
         root=root,
@@ -212,13 +216,13 @@ def get_dataloaders(
         use_trivial_augment=use_trivial_augment,
     )
     dir_path = Path(os.path.dirname(os.path.realpath(__file__)))
-    if dataset == "cifar10" or dataset == "cifar100":
+    if dataset in ("cifar10", "cifar100"):
         if use_less:  # check again
             config_path = "custom_nb201/configs/LESS.config"
         else:
             config_path = "custom_nb201/configs/CIFAR.config"
         split_info = load_config(
-            dir_path / "custom_nb201/configs/cifar-split.txt", None
+            dir_path / "custom_nb201/configs/cifar-split.txt", None,
         )
     elif dataset.startswith("ImageNet16"):
         if use_less:
@@ -250,13 +254,11 @@ def get_dataloaders(
                 shuffle=False,
                 num_workers=workers,
                 pin_memory=True,
-            )
+            ),
         }
         assert len(train_data) == len(split_info.train) + len(
-            split_info.valid
-        ), "invalid length : {:} vs {:} + {:}".format(
-            len(train_data), len(split_info.train), len(split_info.valid)
-        )
+            split_info.valid,
+        ), f"invalid length : {len(train_data)} vs {len(split_info.train)} + {len(split_info.valid)}"
         train_data_v2 = deepcopy(train_data)
         train_data_v2.transform = valid_data.transform
         valid_data = train_data_v2
@@ -265,7 +267,7 @@ def get_dataloaders(
             train_data,
             batch_size=config.batch_size // gradient_accumulations,
             sampler=torch.utils.data.sampler.SubsetRandomSampler(
-                split_info.train
+                split_info.train,
             ),
             num_workers=workers,
             pin_memory=True,
@@ -274,7 +276,7 @@ def get_dataloaders(
             valid_data,
             batch_size=config.batch_size // gradient_accumulations,
             sampler=torch.utils.data.sampler.SubsetRandomSampler(
-                split_info.valid
+                split_info.valid,
             ),
             num_workers=workers,
             pin_memory=True,
@@ -310,7 +312,7 @@ def get_dataloaders(
                     batch_size=config.batch_size
                     // gradient_accumulations,
                     sampler=torch.utils.data.sampler.SubsetRandomSampler(
-                        cifar100_splits.xvalid
+                        cifar100_splits.xvalid,
                     ),
                     num_workers=workers,
                     pin_memory=True,
@@ -320,7 +322,7 @@ def get_dataloaders(
                     batch_size=config.batch_size
                     // gradient_accumulations,
                     sampler=torch.utils.data.sampler.SubsetRandomSampler(
-                        cifar100_splits.xtest
+                        cifar100_splits.xtest,
                     ),
                     num_workers=workers,
                     pin_memory=True,
@@ -339,7 +341,7 @@ def get_dataloaders(
                     batch_size=config.batch_size
                     // gradient_accumulations,
                     sampler=torch.utils.data.sampler.SubsetRandomSampler(
-                        imagenet16_splits.xvalid
+                        imagenet16_splits.xvalid,
                     ),
                     num_workers=workers,
                     pin_memory=True,
@@ -349,7 +351,7 @@ def get_dataloaders(
                     batch_size=config.batch_size
                     // gradient_accumulations,
                     sampler=torch.utils.data.sampler.SubsetRandomSampler(
-                        imagenet16_splits.xtest
+                        imagenet16_splits.xtest,
                     ),
                     num_workers=workers,
                     pin_memory=True,
@@ -386,7 +388,7 @@ def procedure(
             scheduler.update(None, 1.0 * i / len(xloader))
 
         device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu"
+            "cuda" if torch.cuda.is_available() else "cpu",
         )
         inputs = inputs.to(device=device, non_blocking=True)
         targets = targets.to(device=device, non_blocking=True)
@@ -404,7 +406,7 @@ def procedure(
         # record loss and accuracy
         if mode == "valid":
             prec1, prec5 = obtain_accuracy(
-                logits.data, targets.data, topk=(1, 5)
+                logits.data, targets.data, topk=(1, 5),
             )
             top1.update(prec1.item(), inputs.size(0))
             top5.update(prec5.item(), inputs.size(0))
@@ -419,15 +421,15 @@ def evaluate_for_seed(
     model: nn.Module,
     config: NamedTuple,
     train_loader: DataLoader,
-    valid_loaders: Dict[str, DataLoader],
+    valid_loaders: dict[str, DataLoader],
     gradient_accumulations: int,
     workers: int,
-    working_directory: Optional[str | Path] = None,
-    previous_working_directory: Optional[str] = None,
-) -> Dict[str, Any]:
+    working_directory: str | Path | None = None,
+    previous_working_directory: str | None = None,
+) -> dict[str, Any]:
     # get optimizer, scheduler, criterion
     optimizer, scheduler, criterion = get_optim_scheduler(
-        model.parameters(), config
+        model.parameters(), config,
     )
     scaler = torch.cuda.amp.GradScaler()
     if workers > 1:
@@ -437,7 +439,7 @@ def evaluate_for_seed(
     total_epochs = config.epochs + config.warmup
     if previous_working_directory is not None:
         checkpoint = torch.load(
-            os.path.join(previous_working_directory, "checkpoint.pth")
+            os.path.join(previous_working_directory, "checkpoint.pth"),
         )
         model.load_state_dict(checkpoint["model_state_dict"], strict=True)
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
@@ -557,9 +559,7 @@ class NB201Pipeline(Objective):
                     epochs=self.n_epochs,
                     gradient_accumulations=gradient_accumulations,
                     workers=self.workers,
-                    use_trivial_augment=hp["trivial_augment"]
-                    if "trivial_augment" in hp
-                    else False,
+                    use_trivial_augment=hp.get("trivial_augment", False),
                     eval_mode=self.eval_mode,
                 )
 
@@ -612,11 +612,11 @@ class NB201Pipeline(Objective):
             "loss": self.transform(val_err),
             "info_dict": {
                 **out_dict,
-                **{
+
                     "train_time": end - start,
                     "timestamp": end,
-                    "number_of_parameters": nof_parameters,
-                },
+                    "number_of_parameters": nof_parameters
+                ,
             },
         }
 
@@ -646,10 +646,6 @@ if __name__ == "__main__":
     import re
     from functools import partial
 
-    # pylint: disable=ungrouped-imports
-    from torch.utils.tensorboard import SummaryWriter
-    from tqdm import tqdm
-
     from benchmarks.objectives.apis.nasbench201 import NAS201
     from benchmarks.objectives.custom_nb201.genotypes import (
         Structure as CellStructure,
@@ -662,14 +658,16 @@ if __name__ == "__main__":
         NB201Spaces,
     )
 
+    # pylint: disable=ungrouped-imports
+    from torch.utils.tensorboard import SummaryWriter
+    from tqdm import tqdm
+
     # pylint: enable=ungrouped-imports
 
     def convert_identifier_to_str(
-        identifier: str, terminals_to_nb201: dict
+        identifier: str, terminals_to_nb201: dict,
     ) -> str:
-        """
-        Converts identifier to string representation.
-        """
+        """Converts identifier to string representation."""
         start_indices = [
             m.start() for m in re.finditer("(OPS*)", identifier)
         ]
@@ -681,13 +679,13 @@ if __name__ == "__main__":
                 start_indices[i + 1] if i < len(start_indices) - 1 else -1
             )
             substring = identifier[start_idx:end_idx]
-            for k in terminals_to_nb201.keys():
+            for k in terminals_to_nb201:
                 if k in substring:
                     op_edge_list.append(
-                        f"{terminals_to_nb201[k]}~{counter}"
+                        f"{terminals_to_nb201[k]}~{counter}",
                     )
                     break
-            if i == 0 or i == 2:
+            if i in (0, 2):
                 counter = 0
             else:
                 counter += 1
@@ -712,14 +710,14 @@ if __name__ == "__main__":
     parser.add_argument("--nb201_model_backend", action="store_true")
     args = parser.parse_args()
 
-    pipeline_space = dict(
-        architecture=NB201Spaces(
+    pipeline_space = {
+        "architecture": NB201Spaces(
             space="variable_multi_multi",
             dataset="cifar10",
             use_prior=True,
             adjust_params=False,
         ),
-    )
+    }
     pipeline_space = SearchSpace(**pipeline_space)
     pipeline_space = pipeline_space.sample(user_priors=True)
     run_pipeline_fn = NB201Pipeline(
@@ -729,31 +727,31 @@ if __name__ == "__main__":
         eval_mode=True,
     )
     res = run_pipeline_fn(
-        "", "", pipeline_space.hyperparameters["architecture"]
+        "", "", pipeline_space.hyperparameters["architecture"],
     )
 
-    pipeline_space = dict(
-        architecture=NB201Spaces(
+    pipeline_space = {
+        "architecture": NB201Spaces(
             space="fixed_1_none",
             dataset=args.dataset,
             adjust_params=False,
         ),
-    )
+    }
     pipeline_space = SearchSpace(**pipeline_space)
     sampled_pipeline_space = pipeline_space.sample()
 
     # cell_shared = original NB201 space
-    pipeline_space = dict(
-        architecture=NB201Spaces(
+    pipeline_space = {
+        "architecture": NB201Spaces(
             space="variable_multi_multi",
             dataset=args.dataset,
             adjust_params=False,
         ),
-    )
+    }
     pipeline_space = SearchSpace(**pipeline_space)
     sampled_pipeline_space = pipeline_space.sample()
     identifier = {
-        "architecture": "(D2 Linear3 (D1 Linear3 (C Diamond2 (CELL Cell (OPS zero) (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV conv1x1o) (NORM layer))) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (ACT mish) (CONV conv3x3o) (NORM instance))) (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV dconv3x3o) (NORM layer)))) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (ACT mish) (CONV conv1x1o) (NORM instance))) (OPS zero) (OPS Linear1 (CONVBLOCK Linear3 (ACT hardswish) (CONV conv1x1o) (NORM instance))) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (ACT mish) (NORM batch))) (OPS Linear1 (CONVBLOCK Linear3 (ACT mish) (CONV dconv3x3o) (NORM batch)))) (CELL Cell (OPS zero) (OPS zero) (OPS zero) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (ACT hardswish) (CONV dconv3x3o) (NORM layer))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM layer) (ACT relu)))) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM batch) (ACT relu))) (OPS zero) (OPS avg_pool) (OPS zero) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM instance) (ACT mish))))) (C Diamond2 (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (NORM instance) (ACT hardswish))) (OPS zero) (OPS zero) (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (ACT mish) (CONV dconv3x3o) (NORM layer))) (OPS zero)) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (NORM layer) (ACT mish))) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM instance) (ACT hardswish))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM instance) (ACT mish))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM batch) (ACT mish))) (OPS Linear1 (CONVBLOCK Linear3 (ACT hardswish) (CONV dconv3x3o) (NORM layer))) (OPS id)) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (ACT hardswish) (NORM instance))) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (ACT relu) (NORM batch))) (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV dconv3x3o) (NORM batch))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (ACT relu) (NORM instance))) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM instance) (ACT hardswish))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (NORM instance) (ACT mish)))) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM layer) (ACT mish))) (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV conv3x3o) (NORM batch))) (OPS Linear1 (CONVBLOCK Linear3 (ACT hardswish) (CONV conv3x3o) (NORM layer))) (OPS avg_pool) (OPS id) (OPS zero))) (DOWN Residual2 (CELL Cell (OPS zero) (OPS zero) (OPS id) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (ACT hardswish) (NORM batch))) (OPS zero)) resBlock resBlock)) (D1 Linear3 (C Linear2 (CELL Cell (OPS avg_pool) (OPS avg_pool) (OPS avg_pool) (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM instance) (ACT relu))) (OPS zero)) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM instance) (ACT mish))) (OPS id) (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM batch) (ACT relu))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM instance) (ACT mish))) (OPS avg_pool))) (C Linear2 (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (NORM instance) (ACT hardswish))) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (ACT mish) (NORM instance))) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM layer) (ACT relu))) (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM batch) (ACT relu))) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (ACT mish) (NORM layer)))) (CELL Cell (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (NORM layer) (ACT hardswish))) (OPS id) (OPS zero) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM layer) (ACT hardswish))) (OPS zero))) (DOWN Residual2 (CELL Cell (OPS zero) (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (ACT relu) (NORM layer))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (ACT relu) (NORM layer))) (OPS zero) (OPS avg_pool)) resBlock resBlock)) (D0 Residual3 (C Residual2 (CELL Cell (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV conv1x1o) (NORM batch))) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (ACT hardswish) (CONV dconv3x3o) (NORM instance))) (OPS id) (OPS avg_pool)) (CELL Cell (OPS avg_pool) (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (ACT hardswish) (NORM layer))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (NORM batch) (ACT relu))) (OPS avg_pool) (OPS avg_pool)) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM layer) (ACT hardswish))) (OPS avg_pool) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (ACT hardswish) (CONV conv3x3o) (NORM layer))) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM instance) (ACT mish))) (OPS zero))) (C Residual2 (CELL Cell (OPS avg_pool) (OPS avg_pool) (OPS avg_pool) (OPS zero) (OPS zero) (OPS avg_pool)) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV conv3x3o) (NORM layer))) (OPS avg_pool) (OPS avg_pool) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV conv3x3o) (NORM layer))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (ACT mish) (NORM instance)))) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (NORM layer) (ACT hardswish))) (OPS zero) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (ACT mish) (NORM batch))) (OPS zero) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM instance) (ACT relu))) (OPS id))) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (ACT hardswish) (NORM instance))) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM batch) (ACT hardswish))) (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV conv3x3o) (NORM instance))) (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV dconv3x3o) (NORM instance))) (OPS zero)) (CELL Cell (OPS zero) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (NORM layer) (ACT hardswish))) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (ACT mish) (CONV conv3x3o) (NORM instance))) (OPS zero))))"
+        "architecture": "(D2 Linear3 (D1 Linear3 (C Diamond2 (CELL Cell (OPS zero) (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV conv1x1o) (NORM layer))) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (ACT mish) (CONV conv3x3o) (NORM instance))) (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV dconv3x3o) (NORM layer)))) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (ACT mish) (CONV conv1x1o) (NORM instance))) (OPS zero) (OPS Linear1 (CONVBLOCK Linear3 (ACT hardswish) (CONV conv1x1o) (NORM instance))) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (ACT mish) (NORM batch))) (OPS Linear1 (CONVBLOCK Linear3 (ACT mish) (CONV dconv3x3o) (NORM batch)))) (CELL Cell (OPS zero) (OPS zero) (OPS zero) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (ACT hardswish) (CONV dconv3x3o) (NORM layer))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM layer) (ACT relu)))) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM batch) (ACT relu))) (OPS zero) (OPS avg_pool) (OPS zero) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM instance) (ACT mish))))) (C Diamond2 (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (NORM instance) (ACT hardswish))) (OPS zero) (OPS zero) (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (ACT mish) (CONV dconv3x3o) (NORM layer))) (OPS zero)) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (NORM layer) (ACT mish))) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM instance) (ACT hardswish))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM instance) (ACT mish))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM batch) (ACT mish))) (OPS Linear1 (CONVBLOCK Linear3 (ACT hardswish) (CONV dconv3x3o) (NORM layer))) (OPS id)) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (ACT hardswish) (NORM instance))) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (ACT relu) (NORM batch))) (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV dconv3x3o) (NORM batch))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (ACT relu) (NORM instance))) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM instance) (ACT hardswish))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (NORM instance) (ACT mish)))) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM layer) (ACT mish))) (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV conv3x3o) (NORM batch))) (OPS Linear1 (CONVBLOCK Linear3 (ACT hardswish) (CONV conv3x3o) (NORM layer))) (OPS avg_pool) (OPS id) (OPS zero))) (DOWN Residual2 (CELL Cell (OPS zero) (OPS zero) (OPS id) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (ACT hardswish) (NORM batch))) (OPS zero)) resBlock resBlock)) (D1 Linear3 (C Linear2 (CELL Cell (OPS avg_pool) (OPS avg_pool) (OPS avg_pool) (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM instance) (ACT relu))) (OPS zero)) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM instance) (ACT mish))) (OPS id) (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM batch) (ACT relu))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM instance) (ACT mish))) (OPS avg_pool))) (C Linear2 (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (NORM instance) (ACT hardswish))) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (ACT mish) (NORM instance))) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM layer) (ACT relu))) (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM batch) (ACT relu))) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (ACT mish) (NORM layer)))) (CELL Cell (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (NORM layer) (ACT hardswish))) (OPS id) (OPS zero) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM layer) (ACT hardswish))) (OPS zero))) (DOWN Residual2 (CELL Cell (OPS zero) (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (ACT relu) (NORM layer))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (ACT relu) (NORM layer))) (OPS zero) (OPS avg_pool)) resBlock resBlock)) (D0 Residual3 (C Residual2 (CELL Cell (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV conv1x1o) (NORM batch))) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (ACT hardswish) (CONV dconv3x3o) (NORM instance))) (OPS id) (OPS avg_pool)) (CELL Cell (OPS avg_pool) (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (ACT hardswish) (NORM layer))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (NORM batch) (ACT relu))) (OPS avg_pool) (OPS avg_pool)) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM layer) (ACT hardswish))) (OPS avg_pool) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (ACT hardswish) (CONV conv3x3o) (NORM layer))) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM instance) (ACT mish))) (OPS zero))) (C Residual2 (CELL Cell (OPS avg_pool) (OPS avg_pool) (OPS avg_pool) (OPS zero) (OPS zero) (OPS avg_pool)) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV conv3x3o) (NORM layer))) (OPS avg_pool) (OPS avg_pool) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV conv3x3o) (NORM layer))) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (ACT mish) (NORM instance)))) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (NORM layer) (ACT hardswish))) (OPS zero) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (ACT mish) (NORM batch))) (OPS zero) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv3x3o) (NORM instance) (ACT relu))) (OPS id))) (CELL Cell (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (ACT hardswish) (NORM instance))) (OPS Linear1 (CONVBLOCK Linear3 (CONV dconv3x3o) (NORM batch) (ACT hardswish))) (OPS id) (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV conv3x3o) (NORM instance))) (OPS Linear1 (CONVBLOCK Linear3 (ACT relu) (CONV dconv3x3o) (NORM instance))) (OPS zero)) (CELL Cell (OPS zero) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (CONV conv1x1o) (NORM layer) (ACT hardswish))) (OPS avg_pool) (OPS Linear1 (CONVBLOCK Linear3 (ACT mish) (CONV conv3x3o) (NORM instance))) (OPS zero))))",
     }
     sampled_pipeline_space.load_from(identifier)
     run_pipeline_fn = NB201Pipeline(
@@ -763,7 +761,7 @@ if __name__ == "__main__":
         eval_mode=True,
     )
     res = run_pipeline_fn(
-        "", "", sampled_pipeline_space.hyperparameters["architecture"]
+        "", "", sampled_pipeline_space.hyperparameters["architecture"],
     )
 
     if args.write_graph:
@@ -785,7 +783,7 @@ if __name__ == "__main__":
         "zero": "none",
     }
     identifier_to_str_mapping = partial(
-        convert_identifier_to_str, terminals_to_nb201=terminals_to_nb201
+        convert_identifier_to_str, terminals_to_nb201=terminals_to_nb201,
     )
     api = NAS201(
         os.path.dirname(args.data_path),
@@ -824,10 +822,10 @@ if __name__ == "__main__":
 
             try:
                 sampled_pipeline_space.load_from(
-                    {"architecture": new_identifier}
+                    {"architecture": new_identifier},
                 )
                 res_api = run_pipeline_fn(
-                    sampled_pipeline_space.hyperparameters["architecture"]
+                    sampled_pipeline_space.hyperparameters["architecture"],
                 )
                 vals[new_identifier] = 100 * (
                     1 - res_api["info_dict"]["val_score"]
@@ -836,10 +834,8 @@ if __name__ == "__main__":
                 pass
 
         results = sorted(
-            vals.items(), key=lambda pair: pair[1], reverse=True
+            vals.items(), key=lambda pair: pair[1], reverse=True,
         )[:10]
-        print(args.seed)
-        print(results)
     else:
         # seed 777
         identifier = "(CELL Cell (OPS conv3x3) (OPS conv3x3) (OPS conv3x3) (OPS id) (OPS conv3x3) (OPS conv1x1))"
@@ -877,15 +873,14 @@ if __name__ == "__main__":
             our_model_total_params = sum(
                 p.numel() for p in our_model.parameters()
             )
-            print(tiny_net_total_params, our_model_total_params)
 
             new_state_dict = {
-                k: None for k in our_model.state_dict().keys()
+                k: None for k in our_model.state_dict()
             }
             our_model_values = our_model.state_dict().values()
-            for (k_tiny, v_tiny), (k_our, v_our) in zip(
+            for (_k_tiny, v_tiny), (k_our, _v_our) in zip(
                 tiny_net.state_dict().items(),
-                our_model.state_dict().items(),
+                our_model.state_dict().items(), strict=False,
             ):
                 new_state_dict[k_our] = v_tiny
             our_model.load_state_dict(new_state_dict)
@@ -893,12 +888,9 @@ if __name__ == "__main__":
             input_img = torch.randn((8, 3, 32, 32))
             output_tiny = tiny_net(input_img)
             output_our = our_model(input_img)
-            print(
-                f"Model is functionally equivalent: {torch.all(output_tiny == output_our)}"
-            )
 
         res_api = run_pipeline_fn(
-            sampled_pipeline_space.hyperparameters["architecture"]
+            sampled_pipeline_space.hyperparameters["architecture"],
         )
         res_api_val = 100 * (1 - res_api["info_dict"]["val_score"])
         res_api_test = 100 * (1 - res_api["info_dict"]["test_score"])
@@ -921,9 +913,3 @@ if __name__ == "__main__":
             )
         res_val = res["info_dict"]["valid_acc1es"][-1]
         res_test = res["info_dict"]["test_acc1es"][-1]
-
-        print(args.seed)
-        print(f"Id: {sampled_pipeline_space.serialize()}")
-        print("\t\tAPI\t\t\tRun")
-        print(f"Val\t{res_api_val}\t{res_val}")
-        print(f"Test\t{res_api_test}\t{res_test}")

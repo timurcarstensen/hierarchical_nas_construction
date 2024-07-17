@@ -16,8 +16,8 @@
 import types
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 from . import measure
 from .p_utils import get_layer_metric_array
@@ -42,7 +42,7 @@ def snip_forward_linear(self, x):
 @measure("snip", bn=True, mode="param")
 def compute_snip_per_weight(net, inputs, targets, mode, loss_fn, split_data=1):
     for layer in net.modules():
-        if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear):
+        if isinstance(layer, nn.Conv2d | nn.Linear):
             layer.weight_mask = nn.Parameter(torch.ones_like(layer.weight))
             layer.weight.requires_grad = False
 
@@ -71,6 +71,4 @@ def compute_snip_per_weight(net, inputs, targets, mode, loss_fn, split_data=1):
         else:
             return torch.zeros_like(layer.weight)
 
-    grads_abs = get_layer_metric_array(net, snip, mode)
-
-    return grads_abs
+    return get_layer_metric_array(net, snip, mode)

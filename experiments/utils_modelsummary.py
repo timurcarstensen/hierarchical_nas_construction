@@ -1,8 +1,8 @@
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
-'''
+"""
 ---- 1) FLOPs: floating point operations
 ---- 2) #Activations: the number of elements of all ‘Conv2d’ outputs
 ---- 3) #Conv2d: the number of ‘Conv2d’ layers
@@ -13,14 +13,14 @@ import torch.nn as nn
 # Reference
 https://github.com/sovrasov/flops-counter.pytorch.git
 # If you use this code, please consider the following citation:
-@inproceedings{zhang2020aim, % 
+@inproceedings{zhang2020aim, %
   title={AIM 2020 Challenge on Efficient Super-Resolution: Methods and Results},
   author={Kai Zhang and Martin Danelljan and Yawei Li and Radu Timofte and others},
   booktitle={European Conference on Computer Vision Workshops},
   year={2020}
 }
 # --------------------------------------------
-'''
+"""
 
 
 def get_model_flops(model,
@@ -28,8 +28,8 @@ def get_model_flops(model,
                     print_per_layer_stat=True,
                     input_constructor=None):
     assert type(
-        input_res) is tuple, 'Please provide the size of the input image.'
-    assert len(input_res) >= 3, 'Input image should have 3 dimensions.'
+        input_res) is tuple, "Please provide the size of the input image."
+    assert len(input_res) >= 3, "Input image should have 3 dimensions."
     flops_model = add_flops_counting_methods(model)
     flops_model.eval().start_flops_count()
     if input_constructor:
@@ -50,8 +50,8 @@ def get_model_flops(model,
 
 def get_model_activation(model, input_res, input_constructor=None):
     assert type(
-        input_res) is tuple, 'Please provide the size of the input image.'
-    assert len(input_res) >= 3, 'Input image should have 3 dimensions.'
+        input_res) is tuple, "Please provide the size of the input image."
+    assert len(input_res) >= 3, "Input image should have 3 dimensions."
     activation_model = add_activation_counting_methods(model)
     activation_model.eval().start_activation_count()
     if input_constructor:
@@ -97,37 +97,36 @@ def get_model_complexity_info(model,
     return flops_count, params_count
 
 
-def flops_to_string(flops, units='GMac', precision=2):
+def flops_to_string(flops, units="GMac", precision=2):
     if units is None:
         if flops // 10**9 > 0:
-            return str(round(flops / 10.**9, precision)) + ' GMac'
+            return str(round(flops / 10.**9, precision)) + " GMac"
         elif flops // 10**6 > 0:
-            return str(round(flops / 10.**6, precision)) + ' MMac'
+            return str(round(flops / 10.**6, precision)) + " MMac"
         elif flops // 10**3 > 0:
-            return str(round(flops / 10.**3, precision)) + ' KMac'
+            return str(round(flops / 10.**3, precision)) + " KMac"
         else:
-            return str(flops) + ' Mac'
+            return str(flops) + " Mac"
+    elif units == "GMac":
+        return str(round(flops / 10.**9, precision)) + " " + units
+    elif units == "MMac":
+        return str(round(flops / 10.**6, precision)) + " " + units
+    elif units == "KMac":
+        return str(round(flops / 10.**3, precision)) + " " + units
     else:
-        if units == 'GMac':
-            return str(round(flops / 10.**9, precision)) + ' ' + units
-        elif units == 'MMac':
-            return str(round(flops / 10.**6, precision)) + ' ' + units
-        elif units == 'KMac':
-            return str(round(flops / 10.**3, precision)) + ' ' + units
-        else:
-            return str(flops) + ' Mac'
+        return str(flops) + " Mac"
 
 
 def params_to_string(params_num):
     if params_num // 10**6 > 0:
-        return str(round(params_num / 10**6, 2)) + ' M'
+        return str(round(params_num / 10**6, 2)) + " M"
     elif params_num // 10**3:
-        return str(round(params_num / 10**3, 2)) + ' k'
+        return str(round(params_num / 10**3, 2)) + " k"
     else:
         return str(params_num)
 
 
-def print_model_with_flops(model, units='GMac', precision=3):
+def print_model_with_flops(model, units="GMac", precision=3):
     total_flops = model.compute_average_flops_cost()
 
     def accumulate_flops(self):
@@ -141,12 +140,12 @@ def print_model_with_flops(model, units='GMac', precision=3):
 
     def flops_repr(self):
         accumulated_flops_cost = self.accumulate_flops()
-        return ', '.join([
+        return ", ".join([
             flops_to_string(accumulated_flops_cost,
                             units=units,
                             precision=precision),
-            '{:.3%} MACs'.format(accumulated_flops_cost / total_flops),
-            self.original_extra_repr()
+            f"{accumulated_flops_cost / total_flops:.3%} MACs",
+            self.original_extra_repr(),
         ])
 
     def add_extra_repr(m):
@@ -158,20 +157,18 @@ def print_model_with_flops(model, units='GMac', precision=3):
             assert m.extra_repr != m.original_extra_repr
 
     def del_extra_repr(m):
-        if hasattr(m, 'original_extra_repr'):
+        if hasattr(m, "original_extra_repr"):
             m.extra_repr = m.original_extra_repr
             del m.original_extra_repr
-        if hasattr(m, 'accumulate_flops'):
+        if hasattr(m, "accumulate_flops"):
             del m.accumulate_flops
 
     model.apply(add_extra_repr)
-    print(model)
     model.apply(del_extra_repr)
 
 
 def get_model_parameters_number(model):
-    params_num = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    return params_num
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
 def add_flops_counting_methods(net_main_module):
@@ -192,12 +189,10 @@ def add_flops_counting_methods(net_main_module):
 
 
 def compute_average_flops_cost(self):
-    """
-    A method that will be available after add_flops_counting_methods() is called
+    """A method that will be available after add_flops_counting_methods() is called
     on a desired net object.
     Returns current mean flops consumption per image.
     """
-
     flops_sum = 0
     for module in self.modules():
         if is_supported_instance(module):
@@ -207,8 +202,7 @@ def compute_average_flops_cost(self):
 
 
 def start_flops_count(self):
-    """
-    A method that will be available after add_flops_counting_methods() is called
+    """A method that will be available after add_flops_counting_methods() is called
     on a desired net object.
     Activates the computation of mean flops consumption per image.
     Call it before you run the network.
@@ -217,8 +211,7 @@ def start_flops_count(self):
 
 
 def stop_flops_count(self):
-    """
-    A method that will be available after add_flops_counting_methods() is called
+    """A method that will be available after add_flops_counting_methods() is called
     on a desired net object.
     Stops computing the mean flops consumption per image.
     Call whenever you want to pause the computation.
@@ -227,8 +220,7 @@ def stop_flops_count(self):
 
 
 def reset_flops_count(self):
-    """
-    A method that will be available after add_flops_counting_methods() is called
+    """A method that will be available after add_flops_counting_methods() is called
     on a desired net object.
     Resets statistics computed so far.
     """
@@ -237,13 +229,13 @@ def reset_flops_count(self):
 
 def add_flops_counter_hook_function(module):
     if is_supported_instance(module):
-        if hasattr(module, '__flops_handle__'):
+        if hasattr(module, "__flops_handle__"):
             return
 
-        if isinstance(module, (nn.Conv2d, nn.Conv3d, nn.ConvTranspose2d)):
+        if isinstance(module, nn.Conv2d | nn.Conv3d | nn.ConvTranspose2d):
             handle = module.register_forward_hook(conv_flops_counter_hook)
         elif isinstance(module,
-                        (nn.ReLU, nn.PReLU, nn.ELU, nn.LeakyReLU, nn.ReLU6)):
+                        nn.ReLU | nn.PReLU | nn.ELU | nn.LeakyReLU | nn.ReLU6):
             handle = module.register_forward_hook(relu_flops_counter_hook)
         elif isinstance(module, nn.Linear):
             handle = module.register_forward_hook(linear_flops_counter_hook)
@@ -255,10 +247,9 @@ def add_flops_counter_hook_function(module):
 
 
 def remove_flops_counter_hook_function(module):
-    if is_supported_instance(module):
-        if hasattr(module, '__flops_handle__'):
-            module.__flops_handle__.remove()
-            del module.__flops_handle__
+    if is_supported_instance(module) and hasattr(module, "__flops_handle__"):
+        module.__flops_handle__.remove()
+        del module.__flops_handle__
 
 
 def add_flops_counter_variable_or_reset(module):
@@ -268,20 +259,7 @@ def add_flops_counter_variable_or_reset(module):
 
 # ---- Internal functions
 def is_supported_instance(module):
-    if isinstance(module, (
-            nn.Conv2d,
-            nn.ConvTranspose2d,
-            nn.BatchNorm2d,
-            nn.Linear,
-            nn.ReLU,
-            nn.PReLU,
-            nn.ELU,
-            nn.LeakyReLU,
-            nn.ReLU6,
-    )):
-        return True
-
-    return False
+    return bool(isinstance(module, nn.Conv2d | nn.ConvTranspose2d | nn.BatchNorm2d | nn.Linear | nn.ReLU | nn.PReLU | nn.ELU | nn.LeakyReLU | nn.ReLU6))
 
 
 def conv_flops_counter_hook(conv_module, input, output):
@@ -362,12 +340,10 @@ def add_activation_counting_methods(net_main_module):
 
 
 def compute_average_activation_cost(self):
-    """
-    A method that will be available after add_activation_counting_methods() is called
+    """A method that will be available after add_activation_counting_methods() is called
     on a desired net object.
     Returns current mean activation consumption per image.
     """
-
     activation_sum = 0
     num_conv = 0
     for module in self.modules():
@@ -378,8 +354,7 @@ def compute_average_activation_cost(self):
 
 
 def start_activation_count(self):
-    """
-    A method that will be available after add_activation_counting_methods() is called
+    """A method that will be available after add_activation_counting_methods() is called
     on a desired net object.
     Activates the computation of mean activation consumption per image.
     Call it before you run the network.
@@ -388,8 +363,7 @@ def start_activation_count(self):
 
 
 def stop_activation_count(self):
-    """
-    A method that will be available after add_activation_counting_methods() is called
+    """A method that will be available after add_activation_counting_methods() is called
     on a desired net object.
     Stops computing the mean activation consumption per image.
     Call whenever you want to pause the computation.
@@ -398,8 +372,7 @@ def stop_activation_count(self):
 
 
 def reset_activation_count(self):
-    """
-    A method that will be available after add_activation_counting_methods() is called
+    """A method that will be available after add_activation_counting_methods() is called
     on a desired net object.
     Resets statistics computed so far.
     """
@@ -408,17 +381,17 @@ def reset_activation_count(self):
 
 def add_activation_counter_hook_function(module):
     if is_supported_instance_for_activation(module):
-        if hasattr(module, '__activation_handle__'):
+        if hasattr(module, "__activation_handle__"):
             return
 
-        if isinstance(module, (nn.Conv2d, nn.ConvTranspose2d)):
+        if isinstance(module, nn.Conv2d | nn.ConvTranspose2d):
             handle = module.register_forward_hook(conv_activation_counter_hook)
             module.__activation_handle__ = handle
 
 
 def remove_activation_counter_hook_function(module):
     if is_supported_instance_for_activation(module):
-        if hasattr(module, '__activation_handle__'):
+        if hasattr(module, "__activation_handle__"):
             module.__activation_handle__.remove()
             del module.__activation_handle__
 
@@ -430,18 +403,11 @@ def add_activation_counter_variable_or_reset(module):
 
 
 def is_supported_instance_for_activation(module):
-    if isinstance(module, (
-            nn.Conv2d,
-            nn.ConvTranspose2d,
-    )):
-        return True
-
-    return False
+    return bool(isinstance(module, nn.Conv2d | nn.ConvTranspose2d))
 
 
 def conv_activation_counter_hook(module, input, output):
-    """
-    Calculate the activations in the convolutional operation.
+    """Calculate the activations in the convolutional operation.
     Reference: Ilija Radosavovic, Raj Prateek Kosaraju, Ross Girshick, Kaiming He, Piotr Dollár, Designing Network Design Spaces.
     :param module:
     :param input:

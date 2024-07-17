@@ -1,5 +1,4 @@
-'''
-Properly implemented ResNet-s for CIFAR10 as described in paper [1].
+"""Properly implemented ResNet-s for CIFAR10 as described in paper [1].
 The implementation and structure of this file is hugely influenced by [2]
 which is implemented for ImageNet and doesn't have option A for identity.
 Moreover, most of the implementations on the web is copy-paste from
@@ -20,24 +19,23 @@ Reference:
 [2] https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
 If you use this implementation in you work, please don't forget to mention the
 author, Yerlan Idelbayev.
-'''
+"""
 import math
 
 import torch.nn.functional as F
-import torch.nn.init as init
 from torch import nn
+from torch.nn import init
 
-__all__ = ['ResNet', 'resnet20', 'resnet32', 'resnet44', 'resnet56', 'resnet110', 'resnet1202', "resnet164"]
+__all__ = ["ResNet", "resnet20", "resnet32", "resnet44", "resnet56", "resnet110", "resnet1202", "resnet164"]
 
 def _weights_init(m):
-    classname = m.__class__.__name__
     #print(classname)
-    if isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
+    if isinstance(m, nn.Linear | nn.Conv2d):
         init.kaiming_normal_(m.weight)
 
 class LambdaLayer(nn.Module):
     def __init__(self, lambd):
-        super(LambdaLayer, self).__init__()
+        super().__init__()
         self.lambd = lambd
 
     def forward(self, x):
@@ -47,8 +45,8 @@ class LambdaLayer(nn.Module):
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, in_planes, planes, stride=1, option='A'):
-        super(BasicBlock, self).__init__()
+    def __init__(self, in_planes, planes, stride=1, option="A"):
+        super().__init__()
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
         self.act1 = nn.ReLU()
@@ -58,29 +56,28 @@ class BasicBlock(nn.Module):
 
         self.shortcut = nn.Sequential()
         if stride != 1 or in_planes != planes:
-            if option == 'A':
+            if option == "A":
                 """
                 For CIFAR10 ResNet paper uses option A.
                 """
                 self.shortcut = LambdaLayer(lambda x:
                                             F.pad(x[:, :, ::2, ::2], (0, 0, 0, 0, planes//4, planes//4), "constant", 0))
-            elif option == 'B':
+            elif option == "B":
                 self.shortcut = nn.Sequential(
                      nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False),
-                     nn.BatchNorm2d(self.expansion * planes)
+                     nn.BatchNorm2d(self.expansion * planes),
                 )
 
     def forward(self, x):
         out = self.act1(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
         out += self.shortcut(x)
-        out = self.act2(out)
-        return out
+        return self.act2(out)
 
 
 class ResNet(nn.Module):
     def __init__(self, block, num_blocks, num_classes=10):
-        super(ResNet, self).__init__()
+        super().__init__()
         self.in_planes = 16
 
         self.conv1 = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1, bias=False)
@@ -109,8 +106,7 @@ class ResNet(nn.Module):
         out = self.layer3(out)
         out = F.avg_pool2d(out, out.size()[3])
         out = out.view(out.size(0), -1)
-        out = self.linear(out)
-        return out
+        return self.linear(out)
 
 
 def resnet20(num_classes: int = 10):
@@ -144,7 +140,7 @@ class Bottleneck(nn.Module):
 
     def __init__(self, inplanes, outplanes, stride=1):
         assert outplanes % self.expansion == 0
-        super(Bottleneck, self).__init__()
+        super().__init__()
         self.inplanes = inplanes
         self.outplanes = outplanes
         self.bottleneck_planes = outplanes // self.expansion
@@ -232,7 +228,7 @@ class ResNet164(nn.Module):
     def _make_layer(self, block, inplanes, outplanes, nstage, stride=1):
         layers = []
         layers.append(block(inplanes, outplanes, stride))
-        for i in range(1, nstage):
+        for _i in range(1, nstage):
             layers.append(block(outplanes, outplanes, stride=1))
         return nn.Sequential(*layers)
 
@@ -247,11 +243,9 @@ class ResNet164(nn.Module):
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
-        x = self.fc(x)
+        return self.fc(x)
 
-        return x
 
 
 def resnet164(num_classes: int = 10):
-    model = ResNet164(Bottleneck, 164, num_classes)
-    return model
+    return ResNet164(Bottleneck, 164, num_classes)

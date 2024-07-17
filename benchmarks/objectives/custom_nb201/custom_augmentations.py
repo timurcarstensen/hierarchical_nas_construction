@@ -9,7 +9,7 @@ class CUTOUT:
 
     def __repr__(self):
         return "{name}(length={length})".format(
-            name=self.__class__.__name__, **self.__dict__
+            name=self.__class__.__name__, **self.__dict__,
         )
 
     def __call__(self, img):
@@ -37,14 +37,14 @@ imagenet_pca = {
             [-0.5675, 0.7192, 0.4009],
             [-0.5808, -0.0045, -0.8140],
             [-0.5836, -0.6948, 0.4203],
-        ]
+        ],
     ),
 }
 
 
 class Lighting:
     def __init__(
-        self, alphastd, eigval=imagenet_pca["eigval"], eigvec=imagenet_pca["eigvec"]
+        self, alphastd, eigval=imagenet_pca["eigval"], eigvec=imagenet_pca["eigvec"],
     ):
         self.alphastd = alphastd
         assert eigval.shape == (3,)
@@ -65,8 +65,7 @@ class Lighting:
         img = np.add(img, inc)
         if old_dtype == np.uint8:
             img = np.clip(img, 0, 255)
-        img = Image.fromarray(img.astype(old_dtype), "RGB")
-        return img
+        return Image.fromarray(img.astype(old_dtype), "RGB")
 
     def __repr__(self):
         return self.__class__.__name__ + "()"

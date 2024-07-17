@@ -18,7 +18,7 @@ def train_test_filter(op, combs, ratio):
         idxs = np.arange(len(paths))
         if len(paths) > 1:
             train_idxs = np.random.choice(
-                idxs, size=int(len(paths) * ratio), replace=False
+                idxs, size=int(len(paths) * ratio), replace=False,
             )
             train_combs += [paths[i] for i in train_idxs]
             test_combs += [paths[i] for i in idxs if i not in train_idxs]
@@ -56,7 +56,7 @@ def generate_data(op, n, lb, ub):
         train=True,
         download=download,
         transform=transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))],
         ),
     )
     test_data = datasets.MNIST(
@@ -64,7 +64,7 @@ def generate_data(op, n, lb, ub):
         train=False,
         download=download,
         transform=transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))],
         ),
     )
 
@@ -90,7 +90,7 @@ def generate_data(op, n, lb, ub):
     train_n = n
     test_n = int(0.33 * train_n)
     train_x, train_y, metainfo = generate_examples(
-        op, combs, train_weights, train_nums, train_n
+        op, combs, train_weights, train_nums, train_n,
     )
     test_x, test_y, _ = generate_examples(op, combs, test_weights, test_nums, test_n)
 

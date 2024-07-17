@@ -2,17 +2,16 @@ import time
 from copy import deepcopy
 
 import torch
-from torch import nn
-from torch.cuda.amp import GradScaler
-from torch.utils.data.sampler import SubsetRandomSampler
-from torchvision import datasets, transforms
-
 from benchmarks.evaluation.objective import Objective
 from benchmarks.objectives.custom_nb201.evaluate_utils import (
     AverageMeter,
     obtain_accuracy,
     prepare_seed,
 )
+from torch import nn
+from torch.cuda.amp import GradScaler
+from torch.utils.data.sampler import SubsetRandomSampler
+from torchvision import datasets, transforms
 
 
 def get_dataloaders(dataset, data_path, workers, seed: int = 777, eval_mode: bool = False):
@@ -41,7 +40,8 @@ def get_dataloaders(dataset, data_path, workers, seed: int = 777, eval_mode: boo
                 val_split.append(counter)
             counter += 1
         train_idx, val_idx = [i for i in range(num_train) if i not in val_split], val_split
-        assert set(train_idx).intersection(val_split) == set() and len(train_idx) + len(val_idx) == num_train
+        assert set(train_idx).intersection(val_split) == set()
+        assert len(train_idx) + len(val_idx) == num_train
         train_sampler = SubsetRandomSampler(train_idx)
         val_sampler = SubsetRandomSampler(val_idx)
 
@@ -125,15 +125,9 @@ def evaluate(model: nn.Module, train_loader: torch.utils.data.DataLoader, val_lo
 
     model.eval()
     if not early_stop:
-        if val_loader is not None:
-            val_error = eval_val_test(model, val_loader)
-        else:
-            val_error = 1.
+        val_error = eval_val_test(model, val_loader) if val_loader is not None else 1.0
 
-    if test_loader is not None:
-        test_error = eval_val_test(model, test_loader)
-    else:
-        test_error = 1.
+    test_error = eval_val_test(model, test_loader) if test_loader is not None else 1.0
 
     return {
         "val_error": val_error,
@@ -212,10 +206,10 @@ class CIFAR10ActivationObjective(Objective):
             "loss": self.transform(val_err),
             "info_dict": {
                 **out_dict,
-                **{
+
                     "train_time": end - start,
-                    "timestamp": end,
-                },
+                    "timestamp": end
+                ,
             },
         }
 
@@ -234,8 +228,8 @@ def dummy_test(config, is_trainable=True, is_const: bool = False):
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     if is_trainable:
         assert pytorch_total_params > 269722
-        first_act_before = deepcopy([p.data for p in model.act.parameters() if p.requires_grad][0].flatten())
-        second_act_before = deepcopy([p.data for p in model.layer1[0].act1.parameters() if p.requires_grad][0].flatten())
+        first_act_before = deepcopy(next(p.data for p in model.act.parameters() if p.requires_grad).flatten())
+        second_act_before = deepcopy(next(p.data for p in model.layer1[0].act1.parameters() if p.requires_grad).flatten())
 
     model.train()
     criterion = nn.L1Loss()
@@ -247,8 +241,8 @@ def dummy_test(config, is_trainable=True, is_const: bool = False):
     loss.backward()
     optimizer.step()
     if is_trainable and not is_const:
-        first_act_after = [p.data for p in model.act.parameters() if p.requires_grad][0].flatten()
-        second_act_after = [p.data for p in model.layer1[0].act1.parameters() if p.requires_grad][0].flatten()
+        first_act_after = next(p.data for p in model.act.parameters() if p.requires_grad).flatten()
+        second_act_after = next(p.data for p in model.layer1[0].act1.parameters() if p.requires_grad).flatten()
         assert not torch.all(first_act_after == first_act_before)
         assert not torch.all(second_act_after == second_act_before)
         assert not torch.all(first_act_after == second_act_after)
@@ -259,15 +253,13 @@ def dummy_test(config, is_trainable=True, is_const: bool = False):
 if __name__ == "__main__":
     import argparse
     import json
-    import math
 
-    from neps.search_spaces.search_space import SearchSpace
-    from path import Path
-
-    import benchmarks.search_spaces.activation_function_search.cifar_models as cifar_models
+    from benchmarks.search_spaces.activation_function_search import cifar_models
     from benchmarks.search_spaces.activation_function_search.graph import (
         ActivationSpace,
     )
+    from neps.search_spaces.search_space import SearchSpace
+    from path import Path
 
     parser = argparse.ArgumentParser(description="Train")
     parser.add_argument(
@@ -302,19 +294,15 @@ if __name__ == "__main__":
         args.save_path.makedirs_p()
 
     if args.resnet20:
-        model = getattr(cifar_models, "resnet20")(num_classes=10)
+        model = cifar_models.resnet20(num_classes=10)
     else:
-        pipeline_space = dict(
-            architecture=ActivationSpace(
+        pipeline_space = {
+            "architecture": ActivationSpace(
                 dataset=args.dataset,
                 base_architecture=args.base_architecture,
             ),
-        )
+        }
         pipeline_space = SearchSpace(**pipeline_space)
-        print(
-            "benchmark",
-            math.log10(pipeline_space.hyperparameters["architecture"].search_space_size),
-        )
 
         # unary_ops = ["id", "neg", "abs", "square", "cubic", "square_root", "mconst", "aconst", "log", "exp", "sin", "cos", "sinh", "cosh", "tanh", "asinh", "atanh", "sinc", "umax", "umin", "sigmoid", "logexp", "gaussian", "erf", "const"]
         # for unary_op in unary_ops:
@@ -338,16 +326,14 @@ if __name__ == "__main__":
         # id = "(L2 UnaryTopo (L1 UnaryTopo (UnOp umax)))" # relu
         id = "(L2 BinaryTopo (BinOp wavg) (L1 BinaryTopo (BinOp bsigmoid) (UnOp neg) (UnOp umin) id id) (L1 BinaryTopo (BinOp bmin) (UnOp umax) (UnOp erf) id id) id id)"
         pipeline_space.load_from({
-            "architecture": id
+            "architecture": id,
         })
         model = pipeline_space.hyperparameters["architecture"]
-        print(id)
 
     run_pipeline_fn = CIFAR10ActivationObjective(
-        dataset=args.dataset, data_path=args.data_path, seed=args.seed, eval_mode=args.eval
+        dataset=args.dataset, data_path=args.data_path, seed=args.seed, eval_mode=args.eval,
     )
     res = run_pipeline_fn("", "", model)
-    print("eval mode" if args.eval else "search mode", args.base_architecture, res)
 
     results = {
         "id": id,

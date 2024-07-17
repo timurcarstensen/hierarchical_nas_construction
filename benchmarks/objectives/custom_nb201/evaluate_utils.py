@@ -5,7 +5,6 @@
 import math
 import random
 from bisect import bisect_right
-from typing import Optional
 
 import numpy as np
 import torch
@@ -13,10 +12,8 @@ from torch import nn
 from torch.optim import Optimizer
 
 
-def prepare_seed(rand_seed: int, workers: Optional[int] = 4) -> None:
-    """
-    Set random seeds for reproducibility and configure PyTorch settings.
-    """
+def prepare_seed(rand_seed: int, workers: int | None = 4) -> None:
+    """Set random seeds for reproducibility and configure PyTorch settings."""
     torch.backends.cudnn.enabled = True
     torch.backends.cudnn.deterministic = True
     # torch.backends.cudnn.benchmark = True
@@ -33,14 +30,12 @@ class _LRScheduler:
     def __init__(self, optimizer, warmup_epochs, epochs):
         if not isinstance(optimizer, Optimizer):
             raise TypeError(
-                f"{type(optimizer).__name__} is not an Optimizer"
+                f"{type(optimizer).__name__} is not an Optimizer",
             )
         self.optimizer = optimizer
         for group in optimizer.param_groups:
             group.setdefault("initial_lr", group["lr"])
-        self.base_lrs = list(
-            map(lambda group: group["initial_lr"], optimizer.param_groups)
-        )
+        self.base_lrs = [group["initial_lr"] for group in optimizer.param_groups]
         self.max_epochs = epochs
         self.warmup_epochs = warmup_epochs
         self.current_epoch = 0
@@ -53,9 +48,9 @@ class _LRScheduler:
     def __repr__(self):
         return (
             "{name}(warmup={warmup_epochs}, max-epoch={max_epochs}, current::epoch={current_epoch}, iter={current_iter:.2f}".format(
-                name=self.__class__.__name__, **self.__dict__
+                name=self.__class__.__name__, **self.__dict__,
             )
-            + ", {:})".format(self.extra_repr())
+            + f", {self.extra_repr()})"
         )
 
     def state_dict(self):
@@ -73,9 +68,7 @@ class _LRScheduler:
 
     def get_min_info(self):
         lrs = self.get_lr()
-        return "#LR=[{:.6f}~{:.6f}] epoch={:03d}, iter={:4.2f}#".format(
-            min(lrs), max(lrs), self.current_epoch, self.current_iter
-        )
+        return f"#LR=[{min(lrs):.6f}~{max(lrs):.6f}] epoch={self.current_epoch:03d}, iter={self.current_iter:4.2f}#"
 
     def get_min_lr(self):
         return min(self.get_lr())
@@ -92,7 +85,7 @@ class _LRScheduler:
             ), f"invalid cur-iter : {cur_iter}"
             self.current_iter = cur_iter
         for param_group, lr in zip(
-            self.optimizer.param_groups, self.get_lr()
+            self.optimizer.param_groups, self.get_lr(), strict=False,
         ):
             param_group["lr"] = lr
 
@@ -105,7 +98,7 @@ class CosineAnnealingLR(_LRScheduler):
 
     def extra_repr(self):
         return "type={:}, T-max={:}, eta-min={:}".format(
-            "cosine", self.T_max, self.eta_min
+            "cosine", self.T_max, self.eta_min,
         )
 
     def get_lr(self):
@@ -139,11 +132,11 @@ class CosineAnnealingLR(_LRScheduler):
 
 class MultiStepLR(_LRScheduler):
     def __init__(
-        self, optimizer, warmup_epochs, epochs, milestones, gammas
+        self, optimizer, warmup_epochs, epochs, milestones, gammas,
     ):
         assert len(milestones) == len(
-            gammas
-        ), "invalid {:} vs {:}".format(len(milestones), len(gammas))
+            gammas,
+        ), f"invalid {len(milestones)} vs {len(gammas)}"
         self.milestones = milestones
         self.gammas = gammas
         super().__init__(optimizer, warmup_epochs, epochs)
@@ -151,7 +144,7 @@ class MultiStepLR(_LRScheduler):
     def extra_repr(self):
         return (
             "type={:}, milestones={:}, gammas={:}, base-lrs={:}".format(
-                "multistep", self.milestones, self.gammas, self.base_lrs
+                "multistep", self.milestones, self.gammas, self.base_lrs,
             )
         )
 
@@ -180,7 +173,7 @@ class ExponentialLR(_LRScheduler):
 
     def extra_repr(self):
         return "type={:}, gamma={:}, base-lrs={:}".format(
-            "exponential", self.gamma, self.base_lrs
+            "exponential", self.gamma, self.base_lrs,
         )
 
     def get_lr(self):
@@ -209,7 +202,7 @@ class LinearLR(_LRScheduler):
 
     def extra_repr(self):
         return "type={:}, max_LR={:}, min_LR={:}, base-lrs={:}".format(
-            "LinearLR", self.max_LR, self.min_LR, self.base_lrs
+            "LinearLR", self.max_LR, self.min_LR, self.base_lrs,
         )
 
     def get_lr(self):
@@ -246,13 +239,12 @@ class CrossEntropyLabelSmooth(nn.Module):
     def forward(self, inputs, targets):
         log_probs = self.logsoftmax(inputs)
         targets = torch.zeros_like(log_probs).scatter_(
-            1, targets.unsqueeze(1), 1
+            1, targets.unsqueeze(1), 1,
         )
         targets = (
             1 - self.epsilon
         ) * targets + self.epsilon / self.num_classes
-        loss = (-targets * log_probs).mean(0).sum()
-        return loss
+        return (-targets * log_probs).mean(0).sum()
 
 
 def get_optim_scheduler(parameters, config):
@@ -282,7 +274,7 @@ def get_optim_scheduler(parameters, config):
     if config.scheduler == "cos":
         T_max = getattr(config, "T_max", config.epochs)
         scheduler = CosineAnnealingLR(
-            optim, config.warmup, config.epochs, T_max, config.eta_min
+            optim, config.warmup, config.epochs, T_max, config.eta_min,
         )
     elif config.scheduler == "multistep":
         scheduler = MultiStepLR(
@@ -294,11 +286,11 @@ def get_optim_scheduler(parameters, config):
         )
     elif config.scheduler == "exponential":
         scheduler = ExponentialLR(
-            optim, config.warmup, config.epochs, config.gamma
+            optim, config.warmup, config.epochs, config.gamma,
         )
     elif config.scheduler == "linear":
         scheduler = LinearLR(
-            optim, config.warmup, config.epochs, config.LR, config.LR_min
+            optim, config.warmup, config.epochs, config.LR, config.LR_min,
         )
     else:
         raise ValueError(f"invalid scheduler : {config.scheduler}")
@@ -307,7 +299,7 @@ def get_optim_scheduler(parameters, config):
         criterion = torch.nn.CrossEntropyLoss()
     elif config.criterion == "SmoothSoftmax":
         criterion = CrossEntropyLabelSmooth(
-            config.class_num, config.label_smooth
+            config.class_num, config.label_smooth,
         )
     else:
         raise ValueError(f"invalid criterion : {config.criterion}")
@@ -315,7 +307,7 @@ def get_optim_scheduler(parameters, config):
 
 
 class AverageMeter:
-    """Computes and stores the average and current value"""
+    """Computes and stores the average and current value."""
 
     def __init__(self):
         self.val = 0.0
@@ -338,12 +330,12 @@ class AverageMeter:
 
     def __repr__(self):
         return "{name}(val={val}, avg={avg}, count={count})".format(
-            name=self.__class__.__name__, **self.__dict__
+            name=self.__class__.__name__, **self.__dict__,
         )
 
 
 def obtain_accuracy(output, target, topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
+    """Computes the precision@k for the specified values of k."""
     maxk = max(topk)
     batch_size = target.size(0)
 

@@ -4,8 +4,8 @@ import shutil
 import numpy as np
 import torch
 import torch.nn.functional as F
-import torchvision.transforms as transforms
 from torch.autograd import Variable
+from torchvision import transforms
 
 TORCH_VERSION = torch.__version__
 
@@ -76,7 +76,7 @@ def _data_transforms_svhn(args):
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize(SVHN_MEAN, SVHN_STD),
-        ]
+        ],
     )
     if args.cutout:
         train_transform.transforms.append(Cutout(args.cutout_length, args.cutout_prob))
@@ -85,7 +85,7 @@ def _data_transforms_svhn(args):
         [
             transforms.ToTensor(),
             transforms.Normalize(SVHN_MEAN, SVHN_STD),
-        ]
+        ],
     )
     return train_transform, valid_transform
 
@@ -100,7 +100,7 @@ def _data_transforms_cifar100(args):
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
-        ]
+        ],
     )
     if args.cutout:
         train_transform.transforms.append(Cutout(args.cutout_length, args.cutout_prob))
@@ -109,7 +109,7 @@ def _data_transforms_cifar100(args):
         [
             transforms.ToTensor(),
             transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
-        ]
+        ],
     )
     return train_transform, valid_transform
 
@@ -124,7 +124,7 @@ def _data_transforms_cifar10(cutout, cutout_length):
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
-        ]
+        ],
     )
     if cutout:
         train_transform.transforms.append(Cutout(cutout_length))
@@ -133,7 +133,7 @@ def _data_transforms_cifar10(cutout, cutout_length):
         [
             transforms.ToTensor(),
             transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
-        ]
+        ],
     )
     return train_transform, valid_transform
 
@@ -177,7 +177,6 @@ def drop_path(x, drop_prob):
 def create_exp_dir(path, scripts_to_save=None):
     if not os.path.exists(path):
         os.mkdir(path)
-    print(f"Experiment dir : {path}")
 
     if scripts_to_save is not None:
         os.mkdir(os.path.join(path, "scripts"))
@@ -224,10 +223,9 @@ def prune(x, num_keep, mask, reset=False):
     else:
         x.data.copy_(
             torch.zeros_like(x).scatter(
-                dim=1, index=index, src=1e-3 * torch.randn_like(src)
-            )
+                dim=1, index=index, src=1e-3 * torch.randn_like(src),
+            ),
         )
-    mask = torch.zeros_like(x, dtype=torch.bool).scatter(
-        dim=1, index=index, src=torch.ones_like(src, dtype=torch.bool)
+    return torch.zeros_like(x, dtype=torch.bool).scatter(
+        dim=1, index=index, src=torch.ones_like(src, dtype=torch.bool),
     )
-    return mask

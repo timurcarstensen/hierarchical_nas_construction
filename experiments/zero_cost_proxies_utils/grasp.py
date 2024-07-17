@@ -14,9 +14,8 @@
 # =============================================================================
 
 import torch
-import torch.autograd as autograd
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import autograd, nn
 
 from . import measure
 from .p_utils import get_layer_metric_array
@@ -42,14 +41,14 @@ def replace_hardswish(base_module: nn.Module):
 
 @measure("grasp", bn=True, mode="param")
 def compute_grasp_per_weight(
-    net, inputs, targets, mode, loss_fn, T=1, num_iters=1, split_data=1
+    net, inputs, targets, mode, loss_fn, T=1, num_iters=1, split_data=1,
 ):
     net = replace_hardswish(net)
 
     # get all applicable weights
     weights = []
     for layer in net.modules():
-        if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear):
+        if isinstance(layer, nn.Conv2d | nn.Linear):
             weights.append(layer.weight)
             layer.weight.requires_grad_(True)  # TODO isn't this already true?
 
@@ -86,7 +85,7 @@ def compute_grasp_per_weight(
         # accumulate gradients computed in previous step and call backwards
         z, count = 0, 0
         for layer in net.modules():
-            if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear):
+            if isinstance(layer, nn.Conv2d | nn.Linear):
                 if grad_w[count] is not None:
                     z += (grad_w[count].data * grad_f[count]).sum()
                 count += 1
@@ -102,6 +101,4 @@ def compute_grasp_per_weight(
         else:
             return torch.zeros_like(layer.weight)
 
-    grads = get_layer_metric_array(net, grasp, mode)
-
-    return grads
+    return get_layer_metric_array(net, grasp, mode)

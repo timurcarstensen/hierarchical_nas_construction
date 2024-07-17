@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split as tts
 
 def get_lang(lang):
     dump = subprocess.Popen(
-        ("aspell", "-d", lang, "dump", "master"), stdout=subprocess.PIPE
+        ("aspell", "-d", lang, "dump", "master"), stdout=subprocess.PIPE,
     )
     expand = subprocess.check_output(("aspell", "-l", lang, "expand"), stdin=dump.stdout)
     dump.wait()
@@ -26,7 +26,7 @@ def filter_extra_chars(lang_dict):
     for lang, words in lang_dict.items():
         filt_words = []
         for word in words:
-            if not any([f in word for f in filters]):
+            if not any(f in word for f in filters):
                 filt_words.append(word)
         lang_dict[lang] = filt_words
     return lang_dict
@@ -43,7 +43,7 @@ def latin_filter(lang_dict, verbose=True):
             if len([l for l in word if l not in lat_letters]) == 0 and len(word) == 6:
                 lang_latin[lang].add(word)
         if verbose:
-            print(lang, len(lang_latin[lang]))
+            pass
     return lang_latin
 
 
@@ -51,7 +51,7 @@ def overlap_filter(lang_dict):
     lang_no_overlap = {}
     for lang, words in lang_dict.items():
         no_overlap = words
-        for other_lang in lang_dict.keys():
+        for other_lang in lang_dict:
             if other_lang != lang:
                 no_overlap = no_overlap.difference(lang_dict[other_lang])
         lang_no_overlap[lang] = no_overlap
@@ -87,10 +87,10 @@ def test_train_split(lang_dict, return_metainfo=False):
     n_test = 1000
     for lang, (train, test) in lang_splits.items():
         train_groups = list(
-            set(zip(*[np.random.choice(train, n_train + 500) for _ in range(n)]))
+            set(zip(*[np.random.choice(train, n_train + 500) for _ in range(n)], strict=False)),
         )[:n_train]
         test_groups = list(
-            set(zip(*[np.random.choice(test, n_test + 500) for _ in range(n)]))
+            set(zip(*[np.random.choice(test, n_test + 500) for _ in range(n)], strict=False)),
         )[:n_test]
         lang_groups[lang] = train_groups, test_groups
 
@@ -102,7 +102,7 @@ def test_train_split(lang_dict, return_metainfo=False):
     for lang, (train, test) in lang_groups.items():
         train_xs += [convert(ws) for ws in train]
         train_ys += [lang_idxs[lang] for _ in train]
-        metainfo += [ws for ws in train]
+        metainfo += list(train)
         test_xs += [convert(ws) for ws in test]
         test_ys += [lang_idxs[lang] for _ in test]
 
@@ -130,7 +130,7 @@ def test_train_split(lang_dict, return_metainfo=False):
 
 def load_language_data(metainfo=False, verbose=True):
     lang_dict = retrieve_langs(
-        ["en", "nl", "de", "es", "fr", "pt_PT", "sw", "zu", "fi", "sv"]
+        ["en", "nl", "de", "es", "fr", "pt_PT", "sw", "zu", "fi", "sv"],
     )
     lang_dict = filter_extra_chars(lang_dict)
     lang_dict = latin_filter(lang_dict, verbose=verbose)

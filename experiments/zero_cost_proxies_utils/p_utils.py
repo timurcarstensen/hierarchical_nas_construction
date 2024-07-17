@@ -14,7 +14,7 @@
 # =============================================================================
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 def get_some_data(train_dataloader, num_batches, device):
@@ -32,7 +32,7 @@ def get_some_data(train_dataloader, num_batches, device):
 def get_some_data_grasp(train_dataloader, num_classes, samples_per_class, device):
     datas = [[] for _ in range(num_classes)]
     labels = [[] for _ in range(num_classes)]
-    mark = dict()
+    mark = {}
     dataloader_iter = iter(train_dataloader)
     while True:
         inputs, targets = next(dataloader_iter)
@@ -58,7 +58,7 @@ def get_layer_metric_array(net, metric, mode):
     for layer in net.modules():
         if mode == "channel" and hasattr(layer, "dont_ch_prune"):
             continue
-        if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear):
+        if isinstance(layer, nn.Conv2d | nn.Linear):
             metric_array.append(metric(layer))
 
     return metric_array
@@ -67,15 +67,15 @@ def get_layer_metric_array(net, metric, mode):
 def reshape_elements(elements, shapes, device):
     def broadcast_val(elements, shapes):
         ret_grads = []
-        for e, sh in zip(elements, shapes):
+        for e, sh in zip(elements, shapes, strict=False):
             ret_grads.append(
-                torch.stack([torch.Tensor(sh).fill_(v) for v in e], dim=0).to(device)
+                torch.stack([torch.Tensor(sh).fill_(v) for v in e], dim=0).to(device),
             )
         return ret_grads
 
     if isinstance(elements[0], list):
         outer = []
-        for e, sh in zip(elements, shapes):
+        for e, sh in zip(elements, shapes, strict=False):
             outer.append(broadcast_val(e, sh))
         return outer
     else:

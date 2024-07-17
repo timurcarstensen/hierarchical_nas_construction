@@ -2,17 +2,16 @@ import logging
 from copy import deepcopy
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions.dirichlet import Dirichlet
-from torch.distributions.kl import kl_divergence
-
 from experiments.darts_utils.cell_operations import ResNetBasicblock
 from experiments.darts_utils.genotypes import Structure
 from experiments.darts_utils.search_cells import (
     NAS201SearchCell_PartialChannel as SearchCell,
 )
 from experiments.darts_utils.utils import process_step_matrix, prune
+from torch import nn
+from torch.distributions.dirichlet import Dirichlet
+from torch.distributions.kl import kl_divergence
 
 
 class TinyNetwork(nn.Module):
@@ -31,7 +30,7 @@ class TinyNetwork(nn.Module):
         reg_type="l2",
         reg_scale=1e-3,
     ):
-        super(TinyNetwork, self).__init__()
+        super().__init__()
         self._C = C
         self._layerN = N
         self.max_nodes = max_nodes
@@ -53,7 +52,7 @@ class TinyNetwork(nn.Module):
         C_prev, num_edge, edge2index = C, None, None
         self.cells = nn.ModuleList()
         for _, (C_curr, reduction) in enumerate(
-            zip(layer_channels, layer_reductions)
+            zip(layer_channels, layer_reductions, strict=False),
         ):
             if reduction:
                 cell = ResNetBasicblock(C_prev, C_curr, 2)
@@ -74,21 +73,19 @@ class TinyNetwork(nn.Module):
                     assert (
                         num_edge == cell.num_edges
                         and edge2index == cell.edge2index
-                    ), "invalid {:} vs. {:}.".format(
-                        num_edge, cell.num_edges
-                    )
+                    ), f"invalid {num_edge} vs. {cell.num_edges}."
             self.cells.append(cell)
             C_prev = cell.out_dim
         self.op_names = deepcopy(search_space)
         self._Layer = len(self.cells)
         self.edge2index = edge2index
         self.lastact = nn.Sequential(
-            nn.BatchNorm2d(C_prev), nn.ReLU(inplace=True)
+            nn.BatchNorm2d(C_prev), nn.ReLU(inplace=True),
         )
         self.global_pooling = nn.AdaptiveAvgPool2d(1)
         self.classifier = nn.Linear(C_prev, num_classes)
         self._arch_parameters = nn.Parameter(
-            1e-3 * torch.randn(num_edge, len(search_space))
+            1e-3 * torch.randn(num_edge, len(search_space)),
         )
         self.tau = 10 if species == "gumbel" else None
         self._mask = None
@@ -97,10 +94,10 @@ class TinyNetwork(nn.Module):
         self.reg_type = reg_type
         self.reg_scale = reg_scale
         device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu"
+            "cuda" if torch.cuda.is_available() else "cpu",
         )
         self.anchor = Dirichlet(
-            torch.ones_like(self._arch_parameters).to(device)
+            torch.ones_like(self._arch_parameters).to(device),
         )
 
     def _loss(self, input, target):
@@ -117,15 +114,14 @@ class TinyNetwork(nn.Module):
         cons = F.elu(self._arch_parameters) + 1
         q = Dirichlet(cons)
         p = self.anchor
-        kl_reg = self.reg_scale * torch.sum(kl_divergence(q, p))
-        return kl_reg
+        return self.reg_scale * torch.sum(kl_divergence(q, p))
 
     def get_weights(self):
         xlist = list(self.stem.parameters()) + list(
-            self.cells.parameters()
+            self.cells.parameters(),
         )
         xlist += list(self.lastact.parameters()) + list(
-            self.global_pooling.parameters()
+            self.global_pooling.parameters(),
         )
         xlist += list(self.classifier.parameters())
         return xlist
@@ -144,39 +140,35 @@ class TinyNetwork(nn.Module):
             logging.info(
                 "arch-parameters :\n{:}".format(
                     process_step_matrix(
-                        self._arch_parameters, "softmax", self._mask
-                    ).cpu()
-                )
+                        self._arch_parameters, "softmax", self._mask,
+                    ).cpu(),
+                ),
             )
             if self.species == "dirichlet":
                 logging.info(
-                    "concentration :\n{:}".format(
-                        (F.elu(self._arch_parameters) + 1).cpu()
-                    )
+                    f"concentration :\n{(F.elu(self._arch_parameters) + 1).cpu()}",
                 )
 
     def get_message(self):
         string = self.extra_repr()
         for i, cell in enumerate(self.cells):
-            string += "\n {:02d}/{:02d} :: {:}".format(
-                i, len(self.cells), cell.extra_repr()
-            )
+            string += f"\n {i:02d}/{len(self.cells):02d} :: {cell.extra_repr()}"
         return string
 
     def extra_repr(self):
         return "{name}(C={_C}, Max-Nodes={max_nodes}, N={_layerN}, L={_Layer})".format(
-            name=self.__class__.__name__, **self.__dict__
+            name=self.__class__.__name__, **self.__dict__,
         )
 
     def genotype(self):
         genotypes = []
         alphas = process_step_matrix(
-            self._arch_parameters, "softmax", self._mask
+            self._arch_parameters, "softmax", self._mask,
         )
         for i in range(1, self.max_nodes):
             xlist = []
             for j in range(i):
-                node_str = "{:}<-{:}".format(i, j)
+                node_str = f"{i}<-{j}"
                 with torch.no_grad():
                     weights = alphas[self.edge2index[node_str]]
                     op_name = self.op_names[weights.argmax().item()]
@@ -189,11 +181,11 @@ class TinyNetwork(nn.Module):
 
     def forward(self, inputs):
         alphas = process_step_matrix(
-            self._arch_parameters, self.species, self._mask, self.tau
+            self._arch_parameters, self.species, self._mask, self.tau,
         )
 
         feature = self.stem(inputs)
-        for i, cell in enumerate(self.cells):
+        for _i, cell in enumerate(self.cells):
             if isinstance(cell, SearchCell):
                 feature = cell(feature, alphas)
             else:
@@ -202,8 +194,7 @@ class TinyNetwork(nn.Module):
         out = self.lastact(feature)
         out = self.global_pooling(out)
         out = out.view(out.size(0), -1)
-        logits = self.classifier(out)
-        return logits
+        return self.classifier(out)
 
     def wider(self, k):
         self.k = k

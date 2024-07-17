@@ -2,17 +2,12 @@ import argparse
 import logging
 import os
 import sys
+from pathlib import Path
 
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.utils
 import torchvision.datasets as dset
-import torchvision.transforms as transforms
-from path import Path
-from torch.autograd import Variable
-
-import experiments.darts_utils.utils as utils
 from benchmarks.evaluation.utils import HelperDataset, _load_npy_data
 from benchmarks.objectives.custom_nb201.DownsampledImageNet import (
     ImageNet16,
@@ -20,6 +15,7 @@ from benchmarks.objectives.custom_nb201.DownsampledImageNet import (
 from benchmarks.objectives.custom_nb201.evaluate_utils import (
     prepare_seed,
 )
+from experiments.darts_utils import utils
 from experiments.darts_utils.architect import Architect
 from experiments.darts_utils.cell_operations import NAS_BENCH_201
 from experiments.darts_utils.net2wider import (
@@ -28,11 +24,17 @@ from experiments.darts_utils.net2wider import (
 )
 from experiments.darts_utils.search_model import TinyNetwork
 from experiments.darts_utils.search_model_gdas import TinyNetworkGDAS
+from torch import nn
+from torch.autograd import Variable
+from torchvision import transforms
 
 parser = argparse.ArgumentParser("DARTS search on cell-based nb201")
 parser.add_argument("--working_directory", type=str, help="where data should be saved")
 parser.add_argument(
-    "--data_path", type=str, default="datapath", help="location of the data corpus"
+    "--data_path",
+    type=str,
+    default="datapath",
+    help="location of the data corpus",
 )
 parser.add_argument(
     "--objective",
@@ -50,26 +52,41 @@ parser.add_argument(
 )
 parser.add_argument("--batch_size", type=int, default=64, help="batch size")
 parser.add_argument(
-    "--learning_rate", type=float, default=0.025, help="init learning rate"
+    "--learning_rate",
+    type=float,
+    default=0.025,
+    help="init learning rate",
 )
 parser.add_argument(
-    "--learning_rate_min", type=float, default=0.001, help="min learning rate"
+    "--learning_rate_min",
+    type=float,
+    default=0.001,
+    help="min learning rate",
 )
 parser.add_argument("--momentum", type=float, default=0.9, help="momentum")
 parser.add_argument("--weight_decay", type=float, default=3e-4, help="weight decay")
 parser.add_argument("--report_freq", type=float, default=50, help="report frequency")
 parser.add_argument("--gpu", type=int, default=0, help="gpu device id")
 parser.add_argument("--epochs", type=int, default=100, help="num of training epochs")
-parser.add_argument("--init_channels", type=int, default=16, help="num of init channels")
+parser.add_argument(
+    "--init_channels", type=int, default=16, help="num of init channels"
+)
 parser.add_argument("--cutout", action="store_true", default=False, help="use cutout")
 parser.add_argument("--cutout_length", type=int, default=16, help="cutout length")
 parser.add_argument("--cutout_prob", type=float, default=1.0, help="cutout probability")
 parser.add_argument(
-    "--seed", type=int, default=777, help="random seed", choices=[777, 888, 999]
+    "--seed",
+    type=int,
+    default=777,
+    help="random seed",
+    choices=[777, 888, 999],
 )
 parser.add_argument("--grad_clip", type=float, default=5, help="gradient clipping")
 parser.add_argument(
-    "--train_portion", type=float, default=0.5, help="portion of training data"
+    "--train_portion",
+    type=float,
+    default=0.5,
+    help="portion of training data",
 )
 parser.add_argument(
     "--unrolled",
@@ -84,7 +101,10 @@ parser.add_argument(
     help="learning rate for arch encoding",
 )
 parser.add_argument(
-    "--arch_weight_decay", type=float, default=1e-3, help="weight decay for arch encoding"
+    "--arch_weight_decay",
+    type=float,
+    default=1e-3,
+    help="weight decay for arch encoding",
 )
 parser.add_argument(
     "--tau_max",
@@ -114,19 +134,34 @@ parser.add_argument(
     help="scaling factor of the regularization term, default value is proper for l2, for kl you might adjust reg_scale to match l2",
 )
 parser.add_argument(
-    "--progressive", action="store_true", default=False, help="use progressive learning"
+    "--progressive",
+    action="store_true",
+    default=False,
+    help="use progressive learning",
 )
 parser.add_argument(
-    "--shapley_momentum", type=float, default=0.8, help="Shapley momentum"
+    "--shapley_momentum",
+    type=float,
+    default=0.8,
+    help="Shapley momentum",
 )
 parser.add_argument(
-    "--shapley_step_size", type=float, default=0.1, help="Shapley step size"
+    "--shapley_step_size",
+    type=float,
+    default=0.1,
+    help="Shapley step size",
 )
 parser.add_argument(
-    "--shapley_samples", type=int, default=10, help="Shapley Monte-Carlo samples"
+    "--shapley_samples",
+    type=int,
+    default=10,
+    help="Shapley Monte-Carlo samples",
 )
 parser.add_argument(
-    "--shapley_threshold", type=float, default=0.5, help="Shapley truncation threshold"
+    "--shapley_threshold",
+    type=float,
+    default=0.5,
+    help="Shapley truncation threshold",
 )
 parser.add_argument("--DEBUG", action="store_true", default=False, help="debug mode")
 args = parser.parse_args()
@@ -138,7 +173,6 @@ if args.progressive:
     args.k = 4
 else:
     args.save = Path(args.working_directory) / args.method / str(args.seed)
-print(args.save)
 args.save.makedirs_p()
 
 if args.objective == "cifar10":
@@ -166,7 +200,7 @@ def main():
     criterion = nn.CrossEntropyLoss()
     criterion = criterion.cuda()
 
-    if args.method == "gdas" or args.method == "snas":
+    if args.method in ("gdas", "snas"):
         # Create the decrease step for the gumbel softmax temperature
         tau_step = (args.tau_min - args.tau_max) / args.epochs
         tau_epoch = args.tau_max
@@ -236,14 +270,20 @@ def main():
     )
 
     if args.objective == "cifar10":
-        train_transform, _ = utils._data_transforms_cifar10(args)# pylint: disable=protected-access
+        train_transform, _ = utils._data_transforms_cifar10(args)  # pylint: disable=protected-access
         train_data = dset.CIFAR10(
-            root=args.data_path, train=True, download=True, transform=train_transform
+            root=args.data_path,
+            train=True,
+            download=True,
+            transform=train_transform,
         )
     elif args.objective == "cifar100":
-        train_transform, _ = utils._data_transforms_cifar100(args) # pylint: disable=protected-access
+        train_transform, _ = utils._data_transforms_cifar100(args)  # pylint: disable=protected-access
         train_data = dset.CIFAR100(
-            root=args.data_path, train=True, download=True, transform=train_transform
+            root=args.data_path,
+            train=True,
+            download=True,
+            transform=train_transform,
         )
     elif args.objective == "ImageNet16-120":
         mean = [x / 255 for x in [122.68, 116.66, 104.01]]
@@ -262,16 +302,17 @@ def main():
             use_num_of_class_only=120,
         )
         assert len(train_data) == 151700
-    elif args.objective == "cifarTile" or args.objective == "addNIST":
+    elif args.objective in ("cifarTile", "addNIST"):
         train_x, train_y, valid_x, valid_y, _, _ = _load_npy_data(
-            args.objective, args.data_path
+            args.objective,
+            args.data_path,
         )
         train_x = np.concatenate((train_x, valid_x), axis=0)
         train_y = np.concatenate((train_y, valid_y), axis=0)
         train_transform = transforms.Compose(
             [
                 transforms.ToTensor(),
-            ]
+            ],
         )
         train_data = HelperDataset(train_x, train_y, train_transform)
     else:
@@ -307,30 +348,36 @@ def main():
         ks = [4, 2]
         num_keeps = [5, 3]
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, float(sum(train_epochs)), eta_min=args.learning_rate_min
+            optimizer,
+            float(sum(train_epochs)),
+            eta_min=args.learning_rate_min,
         )
-    elif "shapley" == args.method:
+    elif args.method == "shapley":
         train_epochs = [30, 70]  # on DARTS CIFAR-10 [15, 50] -> same portion
         train_epochs = [50, 50]
         accum_shaps = 1e-3 * torch.randn(model.num_edges, model.num_ops).cuda()
         ops = []
         for cell_type in ["nb201cell"]:
             for edge in range(model.num_edges):
-                ops.append([f"{cell_type}_{edge}_{i}" for i in range(0, model.num_ops)])
+                ops.append([f"{cell_type}_{edge}_{i}" for i in range(model.num_ops)])
         ops = np.concatenate(ops)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, float(sum(train_epochs)), eta_min=args.learning_rate_min
+            optimizer,
+            float(sum(train_epochs)),
+            eta_min=args.learning_rate_min,
         )
     else:
         train_epochs = [args.epochs]
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, float(train_epochs[0]), eta_min=args.learning_rate_min
+            optimizer,
+            float(train_epochs[0]),
+            eta_min=args.learning_rate_min,
         )
 
     if args.DEBUG:
         train_epochs = [0, 50]
         checkpoint = torch.load(
-            "/work/dlclarge1/schrodi-hierarchical_nas/neurips_darts_results/nb201_fixed_1_none_new/nb201_cifar10/dirichlet-progressive/777/pretrained.pth"
+            "/work/dlclarge1/schrodi-hierarchical_nas/neurips_darts_results/nb201_fixed_1_none_new/nb201_cifar10/dirichlet-progressive/777/pretrained.pth",
         )
         model.load_state_dict(checkpoint["model_state_dict"])
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
@@ -341,7 +388,7 @@ def main():
             lr = scheduler.get_last_lr()[0]
             logging.info("epoch %d lr %e", epoch, lr)
 
-            if "shapley" == args.method and i == len(train_epochs) - 1:
+            if args.method == "shapley" and i == len(train_epochs) - 1:
                 shap_nb201cell = shap_estimation(
                     valid_queue,
                     model,
@@ -381,21 +428,17 @@ def main():
                     lr,
                     is_shapley=args.method == "shapley",
                 )
-            print("train_acc %f", train_acc)
 
             # validation
             valid_acc, _ = infer(valid_queue, model, criterion)
-            print("valid_acc %f", valid_acc)
 
             scheduler.step()
-            if args.method == "gdas" or args.method == "snas":
+            if args.method in ("gdas", "snas"):
                 # Decrease the temperature for the gumbel softmax linearly
                 tau_epoch += tau_step
-                print("tau %f", tau_epoch)
                 model.set_tau(tau_epoch)
 
             genotype = model.genotype()
-            print("genotype = %s", genotype)
             genotype_id = genotype.tostr()
             with open(args.save / "genotypes.txt", "a") as f:
                 f.write(genotype_id + "\n")
@@ -414,7 +457,7 @@ def main():
             else "final.pth",
         )
 
-        if args.progressive and (not i == len(train_epochs) - 1):
+        if args.progressive and (i != len(train_epochs) - 1):
             model.pruning(num_keeps[i + 1])
             # architect.pruning([model._mask])
             model.wider(ks[i + 1])
@@ -430,14 +473,13 @@ def main():
             scheduler = configure_scheduler(
                 scheduler,
                 torch.optim.lr_scheduler.CosineAnnealingLR(
-                    optimizer, float(sum(train_epochs)), eta_min=args.learning_rate_min
+                    optimizer,
+                    float(sum(train_epochs)),
+                    eta_min=args.learning_rate_min,
                 ),
             )
-            print(f"pruning finished, {num_keeps[i + 1]} ops left per edge")
-            print(f"network wider finished, current pc parameter {ks[i + 1]}")
 
     genotype = model.genotype()
-    print("genotype = %s", genotype)
     genotype_id = genotype.tostr()
     with open(args.save / "genotypes.txt", "a") as f:
         f.write(genotype_id + "\n")
@@ -452,7 +494,7 @@ def train(
     criterion,
     optimizer,
     lr,
-    epoch: int = None,
+    epoch: int | None = None,
     is_shapley: bool = False,
 ):
     objs = utils.AvgrageMeter()
@@ -566,17 +608,19 @@ def remove_players(arch_weights, op):
     #     reduce_weights[selected_eid] = reduce_weights[selected_eid] * proj_mask
     arch_weights[selected_edge_id] *= proj_mask
     arch_weights[selected_edge_id] /= torch.sum(
-        arch_weights[selected_edge_id]
+        arch_weights[selected_edge_id],
     )  # normalize arch weights
     return arch_weights
 
 
 def shap_estimation(
-    valid_queue, model: nn.Module, players, num_samples: int, threshold: float = 0.5
+    valid_queue,
+    model: nn.Module,
+    players,
+    num_samples: int,
+    threshold: float = 0.5,
 ):
-    """
-    Implementation of Monte-Carlo sampling of Shapley value for operation importance evaluation
-    """
+    """Implementation of Monte-Carlo sampling of Shapley value for operation importance evaluation."""
     permutations = None
     n = len(players)
     sv_acc = np.zeros((n, num_samples))
@@ -617,8 +661,7 @@ def shap_estimation(
     # shap_acc = np.reshape(result, (2, model.num_edges, model.num_ops))
     # shap_normal, shap_reduce = shap_acc[0], shap_acc[1]
     # return shap_normal, shap_reduce
-    shap_acc = np.reshape(result, (model.num_edges, model.num_ops))
-    return shap_acc
+    return np.reshape(result, (model.num_edges, model.num_ops))
 
 
 def change_alpha(model, shap_values, accu_shap_values, momentum=0.8, step_size=0.1):
@@ -638,7 +681,7 @@ def change_alpha(model, shap_values, accu_shap_values, momentum=0.8, step_size=0
         for i in range(len(model.architecture_parameters))
     ]
 
-    for i, p in enumerate(model._arch_parameters): #pylint: disable=protected-access
+    for i, p in enumerate(model._arch_parameters):  # pylint: disable=protected-access
         p.data.add_((step_size * updated_shap[i]).to(p.device))
 
     return updated_shap

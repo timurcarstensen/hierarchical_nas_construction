@@ -2,11 +2,17 @@ import os
 from copy import deepcopy
 from functools import partial
 
+import benchmarks.search_spaces.hierarchical_nb201.primitives as nb201_ops
 import neps
 import neps.search_spaces.graph_grammar.primitives as ops
 import neps.search_spaces.graph_grammar.topologies as topos
 import networkx as nx
 import numpy as np
+from benchmarks.search_spaces.hierarchical_nb201.topologies import (
+    Diamond3,
+    NASBench201Cell,
+    Residual3,
+)
 from neps.search_spaces.graph_grammar.api import FunctionParameter
 from neps.search_spaces.graph_grammar.graph import Graph
 from neps.search_spaces.graph_grammar.utils import (
@@ -15,13 +21,6 @@ from neps.search_spaces.graph_grammar.utils import (
 from neps.search_spaces.search_space import SearchSpace
 from path import Path
 from torch import nn
-
-import benchmarks.search_spaces.hierarchical_nb201.primitives as nb201_ops
-from benchmarks.search_spaces.hierarchical_nb201.topologies import (
-    Diamond3,
-    NASBench201Cell,
-    Residual3,
-)
 
 DIR_PATH = Path(os.path.dirname(os.path.realpath(__file__)))
 
@@ -94,35 +93,32 @@ def build(
 ):
     in_channels = 3
     base_channels = 16
-    min_channels = 1
     # max_channels = np.inf
     out_channels_factor = 4  # 64
 
     def _create_architecture(
-        _graph: Graph, _channels: int, return_model: bool = False
+        _graph: Graph, _channels: int, return_model: bool = False,
     ):
-        in_node = [n for n in _graph.nodes if _graph.in_degree(n) == 0][0]
+        in_node = next(n for n in _graph.nodes if _graph.in_degree(n) == 0)
         for n in nx.topological_sort(_graph):
             for pred in _graph.predecessors(n):
                 e = (pred, n)
                 if pred == in_node:
                     channels = _channels
                 else:
-                    pred_pred = list(_graph.predecessors(pred))[0]
+                    pred_pred = next(iter(_graph.predecessors(pred)))
                     channels = _graph.edges[(pred_pred, pred)]["C_out"]
                 if _graph.edges[e]["op_name"] == "ResNetBasicblock":
                     _graph.edges[e].update(
-                        {"C_in": channels, "C_out": channels * 2}
+                        {"C_in": channels, "C_out": channels * 2},
                     )
                 else:
                     _graph.edges[e].update(
-                        {"C_in": channels, "C_out": channels}
+                        {"C_in": channels, "C_out": channels},
                     )
 
-        in_node = [n for n in _graph.nodes if _graph.in_degree(n) == 0][0]
-        out_node = [n for n in _graph.nodes if _graph.out_degree(n) == 0][
-            0
-        ]
+        in_node = next(n for n in _graph.nodes if _graph.in_degree(n) == 0)
+        out_node = next(n for n in _graph.nodes if _graph.out_degree(n) == 0)
         max_node_label = max(_graph.nodes())
         _graph.add_nodes_from([max_node_label + 1, max_node_label + 2])
         _graph.add_edge(max_node_label + 1, in_node)
@@ -130,7 +126,7 @@ def build(
             {
                 "op": ops.Stem(_channels, C_in=in_channels),
                 "op_name": "Stem",
-            }
+            },
         )
         _graph.add_nodes_from([out_node, max_node_label + 2])
         _graph.add_edge(out_node, max_node_label + 2)
@@ -145,7 +141,7 @@ def build(
                     nn.Linear(_channels * out_channels_factor, n_classes),
                 ),
                 "op_name": "Out",
-            }
+            },
         )
 
         # this still uses the string method for creating a model
@@ -153,9 +149,9 @@ def build(
             _graph.compile()
             _graph.update_op_names()
             return _graph._to_pytorch()  # pylint: disable=protected-access
+        return None
 
     _create_architecture(graph, base_channels)
-    return None
 
 
 def constraints(
@@ -173,13 +169,13 @@ def constraints(
 
     def _constraints(
         topology: str,
-        current_derivation: list = None,
-        pred_succ_mapping: dict = None,
-        edge_list: dict = None,
-        src_sink_map: dict = None,
-        none_operation: str = None,
+        current_derivation: list | None = None,
+        pred_succ_mapping: dict | None = None,
+        edge_list: dict | None = None,
+        src_sink_map: dict | None = None,
+        none_operation: str | None = None,
     ):
-        if topology not in edge_list.keys():
+        if topology not in edge_list:
             return None
         if current_derivation is None:
             return [None] * len(edge_list[topology])
@@ -273,8 +269,8 @@ class NB201Spaces:
                     [
                         cls._read_grammar(grammar_file)
                         for grammar_file in grammar_files
-                    ]
-                )
+                    ],
+                ),
             )
         else:
             raise NotImplementedError(f"Space {space} is not implemented")
@@ -291,7 +287,7 @@ class NB201Spaces:
             build_fn = partial(build, n_classes=dataset_classes[dataset])
         except KeyError:
             raise NotImplementedError(
-                f"Dataset {dataset} is not implemented"
+                f"Dataset {dataset} is not implemented",
             )
 
         constraints_kwargs = {
@@ -316,8 +312,7 @@ class NB201Spaces:
     @staticmethod
     def _read_grammar(grammar_file: str) -> str:
         with open(Path(DIR_PATH) / "grammars" / grammar_file) as f:
-            productions = f.read()
-        return productions
+            return f.read()
 
     @staticmethod
     def _filter_productions(productions: str) -> str:
@@ -337,7 +332,6 @@ NB201_HIERARCHIES_CONSIDERED = {
 
 if __name__ == "__main__":
     import logging
-    import math
     import time
 
     # pylint: disable=ungrouped-imports
@@ -370,9 +364,9 @@ if __name__ == "__main__":
         "fixed_1_none",
         "variable_multi_multi",
     ]:
-        pipeline_space = dict(
-            architecture=NB201Spaces(space=space, dataset="cifar10"),
-        )
+        pipeline_space = {
+            "architecture": NB201Spaces(space=space, dataset="cifar10"),
+        }
         pipeline_space = SearchSpace(**pipeline_space)
 
         sampled_pipeline_space = pipeline_space.sample(patience=3)
@@ -382,7 +376,7 @@ if __name__ == "__main__":
         mutated_sampled_pipeline = sampled_pipeline_space.mutate()
         sampled_pipeline_space2 = pipeline_space.sample(patience=3)
         crossover_sampled_pipeline = sampled_pipeline_space.crossover(
-            sampled_pipeline_space2
+            sampled_pipeline_space2,
         )
 
         value = sampled_pipeline_space.hyperparameters[
@@ -391,32 +385,16 @@ if __name__ == "__main__":
         if len(value) == 1:
             value = value[0]
         hierarchy_graphs = value[1]
-        print(
-            space,
-            math.log10(
-                pipeline_space.hyperparameters[
-                    "architecture"
-                ].search_space_size
-            ),
-            len(hierarchy_graphs),
-        )
 
     # test ops
-    pipeline_space = dict(
-        architecture=NB201Spaces(
-            space="variable_multi_multi", dataset="cifar10"
+    pipeline_space = {
+        "architecture": NB201Spaces(
+            space="variable_multi_multi", dataset="cifar10",
         ),
-    )
+    }
     pipeline_space = SearchSpace(**pipeline_space)
     pipeline_space = pipeline_space.sample()
     _ = run_pipeline(pipeline_space.hyperparameters["architecture"])
-    print(
-        math.log10(
-            pipeline_space.hyperparameters[
-                "architecture"
-            ].search_space_size
-        )
-    )
     sampled_pipeline_space = pipeline_space.sample()
     _ = sampled_pipeline_space.hyperparameters[
         "architecture"
@@ -461,5 +439,5 @@ if __name__ == "__main__":
     )
 
     previous_results, pending_configs = neps.status(
-        "results/hierarchical_architecture_example_new"
+        "results/hierarchical_architecture_example_new",
     )

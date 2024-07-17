@@ -3,16 +3,11 @@
 ##################################################
 import hashlib
 import os
-import sys
+import pickle
 
 import numpy as np
-import torch.utils.data as data
 from PIL import Image
-
-if sys.version_info[0] == 2:
-    import cPickle as pickle
-else:
-    import pickle
+from torch.utils import data
 
 
 def calculate_md5(fpath, chunk_size=1024 * 1024):
@@ -64,10 +59,7 @@ class ImageNet16(data.Dataset):
         if not self._check_integrity():
             raise RuntimeError("Dataset not found or corrupted.")
 
-        if self.train:
-            downloaded_list = self.train_list
-        else:
-            downloaded_list = self.valid_list
+        downloaded_list = self.train_list if self.train else self.valid_list
         self.data = []
         self.targets = []
 
@@ -75,10 +67,7 @@ class ImageNet16(data.Dataset):
         for _, (file_name, _) in enumerate(downloaded_list):
             file_path = os.path.join(self.root, file_name)
             with open(file_path, "rb") as f:
-                if sys.version_info[0] == 2:
-                    entry = pickle.load(f)
-                else:
-                    entry = pickle.load(f, encoding="latin1")
+                entry = pickle.load(f, encoding="latin1")
                 self.data.append(entry["data"])
                 self.targets.extend(entry["labels"])
         self.data = np.vstack(self.data).reshape(-1, 3, 16, 16)
@@ -90,7 +79,7 @@ class ImageNet16(data.Dataset):
                 and use_num_of_class_only < 1000
             ), f"invalid use_num_of_class_only : {use_num_of_class_only}"
             new_data, new_targets = [], []
-            for I, L in zip(self.data, self.targets):
+            for I, L in zip(self.data, self.targets, strict=False):
                 if 1 <= L <= use_num_of_class_only:
                     new_data.append(I)
                     new_targets.append(L)
@@ -98,11 +87,7 @@ class ImageNet16(data.Dataset):
             self.targets = new_targets
 
     def __repr__(self):
-        return "{name}({num} images, {classes} classes)".format(
-            name=self.__class__.__name__,
-            num=len(self.data),
-            classes=len(set(self.targets)),
-        )
+        return f"{self.__class__.__name__}({len(self.data)} images, {len(set(self.targets))} classes)"
 
     def __getitem__(self, index):
         img, target = self.data[index], self.targets[index] - 1

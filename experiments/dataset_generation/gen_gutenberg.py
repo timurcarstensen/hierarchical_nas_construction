@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split as tts
 
 
 def is_all_upper(l):
-    return all([c.isupper() or c == " " for c in l])
+    return all(c.isupper() or c == " " for c in l)
 
 
 def expand(word):
@@ -29,7 +29,7 @@ def encode(phrase):
 
 def test_train_split(author_data, author_idx, return_metainfo=False):
     author_splits = {}
-    for author in author_data.keys():
+    for author in author_data:
         idxs = np.arange(len(author_data[author]["encodings"]))
         train, test = tts(idxs, train_size=11100, test_size=1000)
         author_splits[author] = train, test
@@ -62,7 +62,7 @@ def load_gutenberg(metainfo=False):
     texts = {}
     authors = {}
     for text in os.listdir("texts"):
-        with open("texts/" + text, "r") as f:
+        with open("texts/" + text) as f:
             author = text.split(".")[0][:-1]
             if author in [
                 "aquinas",
@@ -74,7 +74,7 @@ def load_gutenberg(metainfo=False):
             ]:
                 texts[text] = f.readlines()[95:]
                 authors[text] = author
-    all_authors = sorted(list(set(authors.values())))
+    all_authors = sorted(set(authors.values()))
     author_idx = {a: float(i) for i, a in enumerate(all_authors)}
     lat_letters = "abcdefghijklmnopqrstuvwxyz "
     _RE_COMBINE_WHITESPACE = re.compile(r"\s+")
@@ -124,12 +124,12 @@ def load_gutenberg(metainfo=False):
         if author not in author_phrase_set:
             author_phrase_set[author] = set()
 
-        for word in range(0, len(v) - phrase_size):
-            phrase = [w for w in v[word : word + phrase_size]]
+        for word in range(len(v) - phrase_size):
+            phrase = list(v[word : word + phrase_size])
             if all(
-                [phrase_word_bounds[0] <= len(w) <= phrase_word_bounds[1] for w in phrase]
+                phrase_word_bounds[0] <= len(w) <= phrase_word_bounds[1] for w in phrase
             ):
-                exp_phrase = tuple([expand(w) for w in phrase])
+                exp_phrase = tuple(expand(w) for w in phrase)
                 author_phrase_set[author].add(exp_phrase)
 
     # filter overlapping phrases

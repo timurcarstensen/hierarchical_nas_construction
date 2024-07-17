@@ -7,7 +7,7 @@ class BinaryOperation(AbstractPrimitive):
     trainable = False
 
     def __init__(
-        self, **kwargs
+        self, **kwargs,
     ):  # pylint:disable=W0613
         super().__init__(locals())
 
@@ -22,7 +22,7 @@ class TrainableBinaryOperation(AbstractPrimitive):
     trainable = True
 
     def __init__(
-        self, in_channels, **kwargs
+        self, in_channels, **kwargs,
     ):  # pylint:disable=W0613
         super().__init__(locals())
         self.beta = torch.nn.Parameter(torch.ones(in_channels, 1, 1))

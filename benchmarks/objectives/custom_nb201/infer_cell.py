@@ -5,7 +5,7 @@
 from copy import deepcopy
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from .cell_operations import OPS
 
@@ -13,7 +13,7 @@ from .cell_operations import OPS
 # Cell for NAS-Bench-201
 class InferCell(nn.Module):
     def __init__(
-        self, genotype, C_in, C_out, stride, affine=True, track_running_stats=True
+        self, genotype, C_in, C_out, stride, affine=True, track_running_stats=True,
     ):
         super().__init__()
 
@@ -41,11 +41,11 @@ class InferCell(nn.Module):
 
     def extra_repr(self):
         string = "info :: nodes={nodes}, inC={in_dim}, outC={out_dim}".format(
-            **self.__dict__
+            **self.__dict__,
         )
         laystr = []
-        for i, (node_layers, node_innods) in enumerate(zip(self.node_IX, self.node_IN)):
-            y = [f"I{_ii}-L{_il}" for _il, _ii in zip(node_layers, node_innods)]
+        for i, (node_layers, node_innods) in enumerate(zip(self.node_IX, self.node_IN, strict=False)):
+            y = [f"I{_ii}-L{_il}" for _il, _ii in zip(node_layers, node_innods, strict=False)]
             x = "{:}<-({:})".format(i + 1, ",".join(y))
             laystr.append(x)
         return (
@@ -54,9 +54,9 @@ class InferCell(nn.Module):
 
     def forward(self, inputs):
         nodes = [inputs]
-        for node_layers, node_innods in zip(self.node_IX, self.node_IN):
+        for node_layers, node_innods in zip(self.node_IX, self.node_IN, strict=False):
             node_feature = sum(
-                self.layers[_il](nodes[_ii]) for _il, _ii in zip(node_layers, node_innods)
+                self.layers[_il](nodes[_ii]) for _il, _ii in zip(node_layers, node_innods, strict=False)
             )
             nodes.append(node_feature)
         return nodes[-1]
@@ -79,11 +79,11 @@ class NASNetInferCell(nn.Module):
         self.reduction = reduction
         if reduction_prev:
             self.preprocess0 = OPS["skip_connect"](
-                C_prev_prev, C, 2, affine, track_running_stats
+                C_prev_prev, C, 2, affine, track_running_stats,
             )
         else:
             self.preprocess0 = OPS["nor_conv_1x1"](
-                C_prev_prev, C, 1, affine, track_running_stats
+                C_prev_prev, C, 1, affine, track_running_stats,
             )
         self.preprocess1 = OPS["nor_conv_1x1"](C_prev, C, 1, affine, track_running_stats)
 
@@ -102,7 +102,7 @@ class NASNetInferCell(nn.Module):
                 stride = 2 if reduction and j < 2 else 1
                 node_str = f"{i + 2}<-{j}"
                 self.edges[node_str] = OPS[name](
-                    C, C, stride, affine, track_running_stats
+                    C, C, stride, affine, track_running_stats,
                 )
 
     # [TODO] to support drop_prob in this function..
@@ -124,12 +124,12 @@ class NASNetInferCell(nn.Module):
 
 class AuxiliaryHeadCIFAR(nn.Module):
     def __init__(self, C, num_classes):
-        """assuming input size 8x8"""
+        """Assuming input size 8x8."""
         super().__init__()
         self.features = nn.Sequential(
             nn.ReLU(inplace=True),
             nn.AvgPool2d(
-                5, stride=3, padding=0, count_include_pad=False
+                5, stride=3, padding=0, count_include_pad=False,
             ),  # image size = 2 x 2
             nn.Conv2d(C, 128, 1, bias=False),
             nn.BatchNorm2d(128),
@@ -142,5 +142,4 @@ class AuxiliaryHeadCIFAR(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        x = self.classifier(x.view(x.size(0), -1))
-        return x
+        return self.classifier(x.view(x.size(0), -1))

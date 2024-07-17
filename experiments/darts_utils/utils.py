@@ -4,11 +4,11 @@ import shutil
 import numpy as np
 import torch
 import torch.nn.functional as F
-import torchvision.transforms as transforms
 from torch.autograd import Variable
+from torchvision import transforms
 
 
-class AvgrageMeter(object):
+class AvgrageMeter:
 
   def __init__(self):
     self.avg = 0
@@ -40,7 +40,7 @@ def accuracy(output, target, topk=(1,)):
   return res
 
 
-class Cutout(object):
+class Cutout:
   def __init__(self, length):
     self.length = length
 
@@ -129,10 +129,10 @@ def count_parameters_in_MB(model):
 
 
 def save_checkpoint(state, is_best, save):
-  filename = os.path.join(save, 'checkpoint.pth.tar')
+  filename = os.path.join(save, "checkpoint.pth.tar")
   torch.save(state, filename)
   if is_best:
-    best_filename = os.path.join(save, 'model_best.pth.tar')
+    best_filename = os.path.join(save, "model_best.pth.tar")
     shutil.copyfile(filename, best_filename)
 
 
@@ -156,22 +156,21 @@ def drop_path(x, drop_prob):
 def create_exp_dir(path, scripts_to_save=None):
   if not os.path.exists(path):
     os.mkdir(path)
-  print('Experiment dir : {}'.format(path))
 
   if scripts_to_save is not None:
-    os.mkdir(os.path.join(path, 'scripts'))
+    os.mkdir(os.path.join(path, "scripts"))
     for script in scripts_to_save:
-      dst_file = os.path.join(path, 'scripts', os.path.basename(script))
+      dst_file = os.path.join(path, "scripts", os.path.basename(script))
       shutil.copyfile(script, dst_file)
 
 
 def process_step_vector(x, method, mask, tau=None):
-  if method == 'softmax':
+  if method == "softmax":
     output = F.softmax(x, dim=-1)
-  elif method == 'dirichlet':
+  elif method == "dirichlet":
     output = torch.distributions.dirichlet.Dirichlet(
       F.elu(x) + 1).rsample()
-  elif method == 'gumbel':
+  elif method == "gumbel":
     output = F.gumbel_softmax(x, tau=tau, hard=False, dim=-1)
 
   if mask is None:
@@ -203,6 +202,5 @@ def prune(x, num_keep, mask, reset=False):
     x.data.copy_(torch.zeros_like(x).scatter(dim=1, index=index, src=src))
   else:
     x.data.copy_(torch.zeros_like(x).scatter(dim=1, index=index, src=1e-3*torch.randn_like(src)))
-  mask = torch.zeros_like(x, dtype=torch.bool).scatter(
+  return torch.zeros_like(x, dtype=torch.bool).scatter(
       dim=1, index=index, src=torch.ones_like(src,dtype=torch.bool))
-  return mask

@@ -2,14 +2,13 @@ import logging
 from copy import deepcopy
 
 import torch
-import torch.nn as nn
-
 from experiments.darts_utils.cell_operations import ResNetBasicblock
 from experiments.darts_utils.genotypes import Structure
 from experiments.darts_utils.search_cells import (
     NAS201SearchCell as SearchCell,
 )
 from experiments.darts_utils.utils import process_step_matrix
+from torch import nn
 
 
 class TinyNetworkGDAS(nn.Module):
@@ -30,7 +29,7 @@ class TinyNetworkGDAS(nn.Module):
         self.max_nodes = max_nodes
         self._criterion = criterion
         self.stem = nn.Sequential(
-            nn.Conv2d(3, C, kernel_size=3, padding=1, bias=False), nn.BatchNorm2d(C)
+            nn.Conv2d(3, C, kernel_size=3, padding=1, bias=False), nn.BatchNorm2d(C),
         )
 
         layer_channels = [C] * N + [C * 2] + [C * 2] * N + [C * 4] + [C * 4] * N
@@ -38,8 +37,8 @@ class TinyNetworkGDAS(nn.Module):
 
         C_prev, num_edge, edge2index = C, None, None
         self.cells = nn.ModuleList()
-        for index, (C_curr, reduction) in enumerate(
-            zip(layer_channels, layer_reductions)
+        for _index, (C_curr, reduction) in enumerate(
+            zip(layer_channels, layer_reductions, strict=False),
         ):
             if reduction:
                 cell = ResNetBasicblock(C_prev, C_curr, 2)
@@ -68,7 +67,7 @@ class TinyNetworkGDAS(nn.Module):
         self.global_pooling = nn.AdaptiveAvgPool2d(1)
         self.classifier = nn.Linear(C_prev, num_classes)
         self._arch_parameters = nn.Parameter(
-            1e-3 * torch.randn(num_edge, len(search_space))
+            1e-3 * torch.randn(num_edge, len(search_space)),
         )
         self.tau = 10
 
@@ -95,21 +94,19 @@ class TinyNetworkGDAS(nn.Module):
         with torch.no_grad():
             logging.info(
                 "arch-parameters :\n{:}".format(
-                    process_step_matrix(self._arch_parameters, "softmax", None).cpu()
-                )
+                    process_step_matrix(self._arch_parameters, "softmax", None).cpu(),
+                ),
             )
 
     def get_message(self):
         string = self.extra_repr()
         for i, cell in enumerate(self.cells):
-            string += "\n {:02d}/{:02d} :: {:}".format(
-                i, len(self.cells), cell.extra_repr()
-            )
+            string += f"\n {i:02d}/{len(self.cells):02d} :: {cell.extra_repr()}"
         return string
 
     def extra_repr(self):
         return "{name}(C={_C}, Max-Nodes={max_nodes}, N={_layerN}, L={_Layer})".format(
-            name=self.__class__.__name__, **self.__dict__
+            name=self.__class__.__name__, **self.__dict__,
         )
 
     def genotype(self):
@@ -143,7 +140,7 @@ class TinyNetworkGDAS(nn.Module):
                 break
 
         feature = self.stem(inputs)
-        for i, cell in enumerate(self.cells):
+        for _i, cell in enumerate(self.cells):
             if isinstance(cell, SearchCell):
                 feature = cell.forward_gdas(feature, hardwts, index)
             else:
@@ -151,6 +148,4 @@ class TinyNetworkGDAS(nn.Module):
         out = self.lastact(feature)
         out = self.global_pooling(out)
         out = out.view(out.size(0), -1)
-        logits = self.classifier(out)
-
-        return logits
+        return self.classifier(out)

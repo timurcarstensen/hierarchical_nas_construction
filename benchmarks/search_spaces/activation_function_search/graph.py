@@ -3,23 +3,22 @@ import os
 from copy import deepcopy
 from functools import partial
 
-import neps.search_spaces.graph_grammar.topologies as topos
-import torch
-from neps.search_spaces.graph_grammar.api import FunctionParameter
-from neps.search_spaces.graph_grammar.graph import Graph
-from path import Path
-from torch import nn
-from torchvision import models
-
-import benchmarks.search_spaces.activation_function_search.cifar_models as cifar_models
 import benchmarks.search_spaces.activation_function_search.kvary_operations as BinaryOp
 import benchmarks.search_spaces.activation_function_search.unary_operations as UnaryOp
+import neps.search_spaces.graph_grammar.topologies as topos
+import torch
+from benchmarks.search_spaces.activation_function_search import cifar_models
 from benchmarks.search_spaces.activation_function_search.stacking import (
     Stacking,
 )
 from benchmarks.search_spaces.activation_function_search.topologies import (
     BinaryTopo,
 )
+from neps.search_spaces.graph_grammar.api import FunctionParameter
+from neps.search_spaces.graph_grammar.graph import Graph
+from path import Path
+from torch import nn
+from torchvision import models
 
 DIR_PATH = Path(os.path.dirname(os.path.realpath(__file__)))
 
@@ -95,7 +94,6 @@ def build(activation_function: Graph, base_architecture: str = "resnet20", num_c
         return base_module
 
 
-    print(base_architecture)
     if hasattr(cifar_models, base_architecture):
         base_model = getattr(cifar_models, base_architecture)(num_classes=num_classes)
     elif hasattr(models, base_architecture):
@@ -106,14 +104,13 @@ def build(activation_function: Graph, base_architecture: str = "resnet20", num_c
     # set stacking as combo op
     activation_function.update_nodes(
         update_func=lambda node, in_edges, out_edges: set_comb_op(
-            node, **{"a": in_edges, "b": out_edges}
+            node, a=in_edges, b=out_edges,
         ),
         single_instances=False,
     )
 
-    model = replace_activation_functions(base_module=base_model, activation_function=activation_function)
+    return replace_activation_functions(base_module=base_model, activation_function=activation_function)
 
-    return model
 
 class ActivationSpace:
     def __new__(cls, base_architecture:str="resnet20", dataset: str ="cifar10", return_graph_per_hierarchy: bool = True):
@@ -142,27 +139,19 @@ class ActivationSpace:
     @staticmethod
     def _read_grammar(grammar_file: str) -> str:
         with open(Path(DIR_PATH) / grammar_file) as f:
-            productions = f.read()
-        return productions
+            return f.read()
 
 if __name__ == "__main__":
-    import math
 
     from neps.search_spaces.search_space import SearchSpace
 
-    pipeline_space = dict(
-        architecture=ActivationSpace(base_architecture="resnet20"),
-    )
+    pipeline_space = {
+        "architecture": ActivationSpace(base_architecture="resnet20"),
+    }
     pipeline_space = SearchSpace(**pipeline_space)
-    print(
-        "benchmark",
-        math.log10(pipeline_space.hyperparameters["architecture"].search_space_size),
-    )
 
     pipeline_space.load({
-        "architecture": "(L2 UnaryTopo (L1 UnaryTopo (umax)))"
+        "architecture": "(L2 UnaryTopo (L1 UnaryTopo (umax)))",
     })
-    print(pipeline_space["architecture"].id)
 
     model = pipeline_space.hyperparameters["architecture"].to_pytorch()
-    print(model)

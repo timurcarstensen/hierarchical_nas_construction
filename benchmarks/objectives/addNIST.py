@@ -1,8 +1,6 @@
 import time
 
 import torch
-from neps.search_spaces.search_space import SearchSpace
-
 from benchmarks.evaluation.objective import Objective
 from benchmarks.evaluation.train import training_pipeline
 from benchmarks.evaluation.utils import (
@@ -12,6 +10,7 @@ from benchmarks.evaluation.utils import (
     get_scheduler,
     get_train_val_test_loaders,
 )
+from neps.search_spaces.search_space import SearchSpace
 
 
 class AddNISTObjective(Objective):
@@ -38,9 +37,7 @@ class AddNISTObjective(Objective):
             self.n_epochs = 64
 
     def __call__(self, working_directory, previous_working_director, architecture, **hp):
-        """
-        Evaluates the architecture on the addNIST dataset.
-        """
+        """Evaluates the architecture on the addNIST dataset."""
         start = time.time()
         if isinstance(architecture, SearchSpace):
             model = architecture.hyperparameters["graph"].get_model_for_evaluation()
@@ -68,7 +65,7 @@ class AddNISTObjective(Objective):
         # Define the optimizer and the scheduler
         optimizer = get_optimizer("SGD", model, **self.optim_kwargs)
         scheduler = get_scheduler(
-            scheduler="CosineAnnealingLR", optimizer=optimizer, T_max=self.n_epochs
+            scheduler="CosineAnnealingLR", optimizer=optimizer, T_max=self.n_epochs,
         )
 
         # Get the data loaders
@@ -95,8 +92,7 @@ class AddNISTObjective(Objective):
         try:
             if not self.eval_mode:
                 val_err = 1 - results["val_scores"][-1]
-        except Exception as e:
-            print(e)
+        except Exception:
             val_err = 1.0
             self.failed_runs += 1
             if self.failed_runs > 10:

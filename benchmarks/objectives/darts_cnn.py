@@ -1,10 +1,8 @@
 import time
-from typing import Union
+from pathlib import Path
 
 import numpy as np
 import torch
-from path import Path
-
 from benchmarks.evaluation.objective import Objective
 from benchmarks.objectives.darts_utils.train import train_evaluation
 from benchmarks.objectives.darts_utils.train_search import train_search
@@ -14,7 +12,7 @@ from benchmarks.search_spaces.darts_cnn.genotypes import Genotype
 class DARTSCnn(Objective):
     def __init__(
         self,
-        data_path: Union[str, Path],
+        data_path: str | Path,
         eval_policy: str = "last5",
         seed: int = 777,
         log_scale: bool = True,
@@ -64,11 +62,11 @@ class DARTSCnn(Objective):
             )
         end = time.time()
 
-        if "best" == self.eval_policy:
+        if self.eval_policy == "best":
             val_error = 1 - max(valid_accs) / 100
-        elif "last" == self.eval_policy:
+        elif self.eval_policy == "last":
             val_error = 1 - valid_accs[-1] / 100
-        elif "last5" == self.eval_policy:
+        elif self.eval_policy == "last5":
             val_error = 1 - np.mean(valid_accs[-5:]) / 100
 
         return {
@@ -90,10 +88,10 @@ if __name__ == "__main__":
     import shutil
 
     import yaml
-    from neps.search_spaces.search_space import SearchSpace
 
     # pylint: disable=ungrouped-imports
     from benchmarks.search_spaces.darts_cnn.graph import DARTSSpace
+    from neps.search_spaces.search_space import SearchSpace
 
     # pylint: enable=ungrouped-imports
 
@@ -110,16 +108,19 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
-        "--arch", default="ours", type=str, choices=["ours", "drnas", "nasbowl"]
+        "--arch",
+        default="ours",
+        type=str,
+        choices=["ours", "drnas", "nasbowl"],
     )
     parser.add_argument("--seed", default=777, type=int)
     parser.add_argument("--eval", action="store_true")
     args = parser.parse_args()
 
-    pipeline_space = dict(
-        normal=DARTSSpace(),
-        reduce=DARTSSpace(),
-    )
+    pipeline_space = {
+        "normal": DARTSSpace(),
+        "reduce": DARTSSpace(),
+    }
     pipeline_space = SearchSpace(**pipeline_space)
 
     run_pipeline_fn = DARTSCnn(data_path=args.data, seed=args.seed, eval_mode=args.eval)
@@ -130,7 +131,7 @@ if __name__ == "__main__":
             {
                 "normal": "(CELL DARTS (OP sep_conv_3x3) (IN1 0) (OP sep_conv_5x5) (IN1 1) (OP sep_conv_3x3) (IN2 1) (OP sep_conv_3x3) (IN2 2) (OP skip_connect) (IN3 0) (OP sep_conv_3x3) (IN3 1) (OP sep_conv_3x3) (IN4 2) (OP dil_conv_5x5) (IN4 3))",
                 "reduce": "(CELL DARTS (OP max_pool_3x3) (IN1 0) (OP sep_conv_5x5) (IN1 1) (OP dil_conv_5x5) (IN2 2) (OP sep_conv_5x5) (IN2 1) (OP sep_conv_5x5) (IN3 1) (OP dil_conv_5x5) (IN3 3) (OP skip_connect) (IN4 4) (OP sep_conv_5x5) (IN4 1))",
-            }
+            },
         )
         working_directory = Path(args.save) / "drnas"
     elif args.arch == "nasbowl":
@@ -139,7 +140,7 @@ if __name__ == "__main__":
             {
                 "normal": "(CELL DARTS (OP skip_connect) (IN1 1) (OP sep_conv_3x3) (IN1 0) (OP sep_conv_3x3) (IN2 1) (OP max_pool_3x3) (IN2 0) (OP sep_conv_5x5) (IN3 1) (OP sep_conv_3x3) (IN3 0) (OP dil_conv_5x5) (IN4 2) (OP sep_conv_3x3) (IN4 1))",
                 "reduce": "(CELL DARTS (OP skip_connect) (IN1 1) (OP sep_conv_3x3) (IN1 0) (OP sep_conv_3x3) (IN2 1) (OP max_pool_3x3) (IN2 0) (OP sep_conv_5x5) (IN3 1) (OP sep_conv_3x3) (IN3 0) (OP dil_conv_5x5) (IN4 2) (OP sep_conv_3x3) (IN4 1))",
-            }
+            },
         )
         working_directory = Path(args.save) / "bananas"
     elif args.arch == "ours":
@@ -171,7 +172,6 @@ if __name__ == "__main__":
         pipeline_space.hyperparameters["normal"],
         pipeline_space.hyperparameters["reduce"],
     )
-    print(args.arch, res)
 
     with open(
         working_directory / "results.json"

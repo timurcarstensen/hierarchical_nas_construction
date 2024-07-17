@@ -14,7 +14,7 @@ def get_combination(space, num):
             new_combs = []
             for string in combs:
                 for func in space:
-                    xstring = string + [(func, i)]
+                    xstring = [*string, (func, i)]
                     new_combs.append(xstring)
             combs = new_combs
     return combs
@@ -22,21 +22,15 @@ def get_combination(space, num):
 
 class Structure:
     def __init__(self, genotype):
-        assert isinstance(genotype, list) or isinstance(
-            genotype, tuple
-        ), f"invalid class of genotype : {type(genotype)}"
+        assert isinstance(genotype, list | tuple), f"invalid class of genotype : {type(genotype)}"
         self.node_num = len(genotype) + 1
         self.nodes = []
         self.node_N = []
         for idx, node_info in enumerate(genotype):
-            assert isinstance(node_info, list) or isinstance(
-                node_info, tuple
-            ), f"invalid class of node_info : {type(node_info)}"
+            assert isinstance(node_info, list | tuple), f"invalid class of node_info : {type(node_info)}"
             assert len(node_info) >= 1, f"invalid length : {len(node_info)}"
             for node_in in node_info:
-                assert isinstance(node_in, list) or isinstance(
-                    node_in, tuple
-                ), f"invalid class of in-node : {type(node_in)}"
+                assert isinstance(node_in, list | tuple), f"invalid class of in-node : {type(node_in)}"
                 assert (
                     len(node_in) == 2 and node_in[1] <= idx
                 ), f"invalid in-node : {node_in}"
@@ -58,9 +52,7 @@ class Structure:
         return genotypes, True
 
     def node(self, index):
-        assert index > 0 and index <= len(self), "invalid index={:} < {:}".format(
-            index, len(self)
-        )
+        assert index > 0 and index <= len(self), f"invalid index={index} < {len(self)}"
         return self.nodes[index]
 
     def tostr(self):
@@ -76,10 +68,7 @@ class Structure:
         for i, node_info in enumerate(self.nodes):
             sums = []
             for op, xin in node_info:
-                if op == "none" or nodes[xin] is False:
-                    x = False
-                else:
-                    x = True
+                x = not (op == "none" or nodes[xin] is False)
                 sums.append(x)
             nodes[i + 1] = sum(sums) > 0
         return nodes[len(self.nodes)]
@@ -100,11 +89,10 @@ class Structure:
                         x = nodes[xin]
                     else:
                         x = "(" + nodes[xin] + ")" + f"@{op}"
+                elif op == "skip_connect":
+                    x = nodes[xin]
                 else:
-                    if op == "skip_connect":
-                        x = nodes[xin]
-                    else:
-                        x = "(" + nodes[xin] + ")" + f"@{op}"
+                    x = "(" + nodes[xin] + ")" + f"@{op}"
                 cur_node.append(x)
             nodes[i_node + 1] = "+".join(sorted(cur_node))
         return nodes[len(self.nodes)]
@@ -119,7 +107,7 @@ class Structure:
 
     def __repr__(self):
         return "{name}({node_num} nodes with {node_info})".format(
-            name=self.__class__.__name__, node_info=self.tostr(), **self.__dict__
+            name=self.__class__.__name__, node_info=self.tostr(), **self.__dict__,
         )
 
     def __len__(self):
@@ -132,17 +120,13 @@ class Structure:
     def str2structure(xstr):
         if isinstance(xstr, Structure):
             return xstr
-        assert isinstance(xstr, str), "must take string (not {:}) as input".format(
-            type(xstr)
-        )
+        assert isinstance(xstr, str), f"must take string (not {type(xstr)}) as input"
         nodestrs = xstr.split("+")
         genotypes = []
         for node_str in nodestrs:
             inputs = list(filter(lambda x: x != "", node_str.split("|")))
             for xinput in inputs:
-                assert len(xinput.split("~")) == 2, "invalid input length : {:}".format(
-                    xinput
-                )
+                assert len(xinput.split("~")) == 2, f"invalid input length : {xinput}"
             inputs = (xi.split("~") for xi in inputs)
             input_infos = tuple((op, int(IDX)) for (op, IDX) in inputs)
             genotypes.append(input_infos)
@@ -150,20 +134,16 @@ class Structure:
 
     @staticmethod
     def str2fullstructure(xstr, default_name="none"):
-        assert isinstance(xstr, str), "must take string (not {:}) as input".format(
-            type(xstr)
-        )
+        assert isinstance(xstr, str), f"must take string (not {type(xstr)}) as input"
         nodestrs = xstr.split("+")
         genotypes = []
         for i, node_str in enumerate(nodestrs):
             inputs = list(filter(lambda x: x != "", node_str.split("|")))
             for xinput in inputs:
-                assert len(xinput.split("~")) == 2, "invalid input length : {:}".format(
-                    xinput
-                )
+                assert len(xinput.split("~")) == 2, f"invalid input length : {xinput}"
             inputs = (xi.split("~") for xi in inputs)
-            input_infos = list((op, int(IDX)) for (op, IDX) in inputs)
-            all_in_nodes = list(x[1] for x in input_infos)
+            input_infos = [(op, int(IDX)) for (op, IDX) in inputs]
+            all_in_nodes = [x[1] for x in input_infos]
             for j in range(i):
                 if j not in all_in_nodes:
                     input_infos.append((default_name, j))
@@ -173,14 +153,10 @@ class Structure:
 
     @staticmethod
     def gen_all(search_space, num, return_ori):
-        assert isinstance(search_space, list) or isinstance(
-            search_space, tuple
-        ), f"invalid class of search-space : {type(search_space)}"
+        assert isinstance(search_space, list | tuple), f"invalid class of search-space : {type(search_space)}"
         assert (
             num >= 2
-        ), "There should be at least two nodes in a neural cell instead of {:}".format(
-            num
-        )
+        ), f"There should be at least two nodes in a neural cell instead of {num}"
         all_archs = get_combination(search_space, 1)
         for i, arch in enumerate(all_archs):
             all_archs[i] = [tuple(arch)]
@@ -190,7 +166,7 @@ class Structure:
             new_all_archs = []
             for previous_arch in all_archs:
                 for cur_node in cur_nodes:
-                    new_all_archs.append(previous_arch + [tuple(cur_node)])
+                    new_all_archs.append([*previous_arch, tuple(cur_node)])
             all_archs = new_all_archs
         if return_ori:
             return all_archs
@@ -203,7 +179,7 @@ ResNet_CODE = Structure(
         (("nor_conv_3x3", 0),),  # node-1
         (("nor_conv_3x3", 1),),  # node-2
         (("skip_connect", 0), ("skip_connect", 2)),
-    ]  # node-3
+    ],  # node-3
 )
 
 AllConv3x3_CODE = Structure(
@@ -211,7 +187,7 @@ AllConv3x3_CODE = Structure(
         (("nor_conv_3x3", 0),),  # node-1
         (("nor_conv_3x3", 0), ("nor_conv_3x3", 1)),  # node-2
         (("nor_conv_3x3", 0), ("nor_conv_3x3", 1), ("nor_conv_3x3", 2)),
-    ]  # node-3
+    ],  # node-3
 )
 
 AllFull_CODE = Structure(
@@ -246,7 +222,7 @@ AllFull_CODE = Structure(
             ("nor_conv_3x3", 2),
             ("avg_pool_3x3", 2),
         ),
-    ]  # node-3
+    ],  # node-3
 )
 
 AllConv1x1_CODE = Structure(
@@ -254,7 +230,7 @@ AllConv1x1_CODE = Structure(
         (("nor_conv_1x1", 0),),  # node-1
         (("nor_conv_1x1", 0), ("nor_conv_1x1", 1)),  # node-2
         (("nor_conv_1x1", 0), ("nor_conv_1x1", 1), ("nor_conv_1x1", 2)),
-    ]  # node-3
+    ],  # node-3
 )
 
 AllIdentity_CODE = Structure(
@@ -262,7 +238,7 @@ AllIdentity_CODE = Structure(
         (("skip_connect", 0),),  # node-1
         (("skip_connect", 0), ("skip_connect", 1)),  # node-2
         (("skip_connect", 0), ("skip_connect", 1), ("skip_connect", 2)),
-    ]  # node-3
+    ],  # node-3
 )
 
 architectures = {

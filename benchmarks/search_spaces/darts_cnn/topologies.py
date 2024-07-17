@@ -1,12 +1,11 @@
 import networkx as nx
-from neps.search_spaces.graph_grammar.topologies import AbstractTopology
-
 from benchmarks.search_spaces.darts_cnn.primitives import (
     Concat,
     SkipConnect,
     Stacking,
     Unbinder,
 )
+from neps.search_spaces.graph_grammar.topologies import AbstractTopology
 
 
 class DARTSCell(AbstractTopology):
@@ -36,7 +35,7 @@ class DARTSCell(AbstractTopology):
         op_on_edge += [val for idx, val in enumerate(edge_vals) if idx % 2 == 0]
         op_on_edge += [{"op": SkipConnect, "C": None, "stride": 1} for _ in range(4)]
 
-        self.create_graph(dict(zip(edge_list, op_on_edge)))
+        self.create_graph(dict(zip(edge_list, op_on_edge, strict=False)))
 
         # Assign dummy variables as node attributes:
         for i in self.nodes:
@@ -53,7 +52,7 @@ class DARTSCell(AbstractTopology):
     def get_node_list_and_ops(self):
         ops = [val["op_name"] for idx, val in enumerate(self.edge_vals) if idx % 2 == 0]
         in_nodes = [val for idx, val in enumerate(self.edge_vals) if idx % 2 == 1]
-        cell = list(zip(ops, in_nodes))
+        cell = list(zip(ops, in_nodes, strict=False))
 
         G = nx.DiGraph()
         n_nodes = (8 // 2) * 3 + 3
@@ -95,7 +94,7 @@ class DARTSCell(AbstractTopology):
                 continue
             if G.nodes[j]["op_name"] == "skip_connect":
                 in_edges = list(G.in_edges(j))
-                out_edge = list(G.out_edges(j))[0][
+                out_edge = next(iter(G.out_edges(j)))[
                     1
                 ]  # There should be only one out edge really...
                 for in_edge in in_edges:

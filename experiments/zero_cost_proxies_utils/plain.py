@@ -39,5 +39,4 @@ def compute_plain_per_weight(net, inputs, targets, mode, loss_fn, split_data=1):
         else:
             return torch.zeros_like(layer.weight)
 
-    grads_abs = get_layer_metric_array(net, plain, mode)
-    return grads_abs
+    return get_layer_metric_array(net, plain, mode)

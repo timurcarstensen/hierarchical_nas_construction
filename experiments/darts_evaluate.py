@@ -2,18 +2,16 @@ import argparse
 import json
 import random
 from functools import partial
-from typing import Union
 
 import numpy as np
 import torch
-from nas_201_api import NASBench201API
-from neps.search_spaces.search_space import SearchSpace
-from path import Path
-
 from benchmarks.objectives.addNIST import AddNISTObjective
 from benchmarks.objectives.cifarTile import CifarTileObjective
 from benchmarks.objectives.hierarchical_nb201 import NB201Pipeline
 from benchmarks.search_spaces.hierarchical_nb201.graph import NB201Spaces
+from nas_201_api import NASBench201API
+from neps.search_spaces.search_space import SearchSpace
+from path import Path
 
 ObjectiveMapping = {
     "nb201_addNIST": AddNISTObjective,
@@ -24,7 +22,7 @@ ObjectiveMapping = {
 }
 
 
-def get_genotype(path_to_genotypes: Union[str, Path]) -> str:
+def get_genotype(path_to_genotypes: str | Path) -> str:
     with open(Path(path_to_genotypes) / "genotypes.txt") as f:
         data = f.readlines()
     return data[-1][:-1]
@@ -75,7 +73,7 @@ def distill(result):
 parser = argparse.ArgumentParser("DARTS evaluation on cell-based nb201")
 parser.add_argument("--working_directory", type=str, help="where data should be saved")
 parser.add_argument(
-    "--data_path", type=str, default="datapath", help="location of the data corpus"
+    "--data_path", type=str, default="datapath", help="location of the data corpus",
 )
 parser.add_argument("--api_path", type=str, default="", help="location of the api data")
 parser.add_argument(
@@ -96,7 +94,7 @@ args.seed = int(splits[-1])
 genotype = get_genotype(args.working_directory)
 
 run_pipeline_fn = ObjectiveMapping[dataset](
-    data_path=args.data_path, seed=args.seed, eval_mode=True
+    data_path=args.data_path, seed=args.seed, eval_mode=True,
 )
 
 if hasattr(run_pipeline_fn, "set_seed"):
@@ -111,7 +109,7 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed_all(args.seed)
 
 search_space = NB201Spaces(
-    space=search_space[6:-4], dataset=dataset[6:], adjust_params=False
+    space=search_space[6:-4], dataset=dataset[6:], adjust_params=False,
 )
 
 if not isinstance(search_space, dict) and not isinstance(search_space, SearchSpace):
@@ -129,7 +127,6 @@ results = run_pipeline_fn("", "", architecture=model)
 if args.objective in ["cifar10", "cifar100", "ImageNet16-120"] and args.api_path:
     api = NASBench201API(args.api_path)
     result = api.query_by_arch(genotype, hp="200")
-    print(result)
     (
         cifar10_train,
         cifar10_test,
@@ -148,6 +145,5 @@ if args.objective in ["cifar10", "cifar100", "ImageNet16-120"] and args.api_path
         "ImageNet16-120-test": imagenet16_test,
     }
 
-print(results)
 with open(Path(args.working_directory) / "best_config_eval.json", "w") as f:
     json.dump(results, f, indent=4)

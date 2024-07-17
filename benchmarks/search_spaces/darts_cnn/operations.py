@@ -1,11 +1,10 @@
 import torch
-import torch.nn as nn
-
 from benchmarks.search_spaces.darts_cnn.net2wider import (
     BNWider,
     InChannelWider,
     OutChannelWider,
 )
+from torch import nn
 
 OPS = {
     "none": lambda C, stride, affine: Zero(stride),
@@ -20,10 +19,10 @@ OPS = {
     "sep_conv_5x5": lambda C, stride, affine: SepConv(C, C, 5, stride, 2, affine=affine),
     "sep_conv_7x7": lambda C, stride, affine: SepConv(C, C, 7, stride, 3, affine=affine),
     "dil_conv_3x3": lambda C, stride, affine: DilConv(
-        C, C, 3, stride, 2, 2, affine=affine
+        C, C, 3, stride, 2, 2, affine=affine,
     ),
     "dil_conv_5x5": lambda C, stride, affine: DilConv(
-        C, C, 5, stride, 4, 2, affine=affine
+        C, C, 5, stride, 4, 2, affine=affine,
     ),
     "conv_7x1_1x7": lambda C, stride, affine: nn.Sequential(
         nn.ReLU(inplace=False),
@@ -55,7 +54,7 @@ class MaxPoolBN(nn.Module):
     def __init__(self, C_out, stride):
         super().__init__()
         self.op = nn.Sequential(
-            nn.MaxPool2d(3, stride=stride, padding=1), nn.BatchNorm2d(C_out, affine=False)
+            nn.MaxPool2d(3, stride=stride, padding=1), nn.BatchNorm2d(C_out, affine=False),
         )
 
     def forward(self, x):
@@ -73,7 +72,7 @@ class ReLUConvBN(nn.Module):
         self.op = nn.Sequential(
             nn.ReLU(inplace=False),
             nn.Conv2d(
-                C_in, C_out, kernel_size, stride=stride, padding=padding, bias=False
+                C_in, C_out, kernel_size, stride=stride, padding=padding, bias=False,
             ),
             nn.BatchNorm2d(C_out, affine=affine),
         )
@@ -223,8 +222,7 @@ class FactorizedReduce(nn.Module):
     def forward(self, x):
         x = self.relu(x)
         out = torch.cat([self.conv_1(x), self.conv_2(x[:, :, 1:, 1:])], dim=1)
-        out = self.bn(out)
-        return out
+        return self.bn(out)
 
     def wider(self, new_C_in, new_C_out):
         self.conv_1, _ = InChannelWider(self.conv_1, new_C_in)

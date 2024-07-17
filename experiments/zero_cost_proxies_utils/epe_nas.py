@@ -32,7 +32,7 @@ from . import measure
 
 
 def get_batch_jacobian(
-    net, x, target, to, device, args=None
+    net, x, target, to, device, args=None,
 ):  # pylint: disable=unused-argument
     net.zero_grad()
 
@@ -92,7 +92,7 @@ def eval_score_perclass(jacob, labels=None, n_classes=10):
 
 @measure("epe_nas")
 def compute_epe_score(
-    net, inputs, targets, loss_fn, split_data=1
+    net, inputs, targets, loss_fn, split_data=1,
 ):  # pylint: disable=unused-argument
     jacobs = []
     labels = []
@@ -100,7 +100,7 @@ def compute_epe_score(
     try:
 
         jacobs_batch, target, n_classes = get_batch_jacobian(
-            net, inputs, targets, None, None
+            net, inputs, targets, None, None,
         )
         jacobs.append(jacobs_batch.reshape(jacobs_batch.size(0), -1).cpu().numpy())
 
@@ -113,8 +113,7 @@ def compute_epe_score(
 
         s = eval_score_perclass(jacobs, labels, n_classes)
 
-    except Exception as e:
-        print(e)
+    except Exception:
         s = np.nan
 
     return s

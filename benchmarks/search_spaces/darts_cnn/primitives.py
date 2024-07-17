@@ -26,8 +26,7 @@ class FactorizedReduce(nn.Module):
     def forward(self, x):
         x = self.relu(x)
         out = torch.cat([self.conv_1(x), self.conv_2(x[:, :, 1:, 1:])], dim=1)
-        out = self.bn(out)
-        return out
+        return self.bn(out)
 
 
 class SkipConnect(DARTSAbstractPrimitive):
@@ -66,9 +65,9 @@ class Pooling(DARTSAbstractPrimitive):
 
         assert pool_type in ["avg", "max"]
         self.pool_type = pool_type
-        if "avg" == pool_type:
+        if pool_type == "avg":
             self.pool = nn.AvgPool2d(3, stride=stride, padding=1, count_include_pad=False)
-        elif "max" == pool_type:
+        elif pool_type == "max":
             self.pool = nn.MaxPool2d(3, stride=stride, padding=1)
 
     def forward(self, x):
@@ -152,19 +151,14 @@ class DilConv(DARTSAbstractPrimitive):
 
 
 class Concat(AbstractPrimitive):
-    """
-    Implementation of the channel-wise concatination.
-    """
+    """Implementation of the channel-wise concatination."""
 
     def __init__(self):
         super().__init__(locals())
 
     def forward(self, x):  # pylint: disable=no-self-use
-        """
-        Expecting a list of input tensors. Stacking them channel-wise.
-        """
-        x = torch.cat(x, dim=1)
-        return x
+        """Expecting a list of input tensors. Stacking them channel-wise."""
+        return torch.cat(x, dim=1)
 
 
 class Unbinder(AbstractPrimitive):

@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 # bias = 0
@@ -10,7 +10,7 @@ def InChannelWider(module, new_channels, index=None):
     if index is None:
         index = torch.randint(low=0, high=in_channels, size=(new_channels - in_channels,))
     module.weight = nn.Parameter(
-        torch.cat([weight, weight[:, index, :, :].clone()], dim=1), requires_grad=True
+        torch.cat([weight, weight[:, index, :, :].clone()], dim=1), requires_grad=True,
     )
 
     module.in_channels = new_channels
@@ -29,10 +29,10 @@ def OutChannelWider(module, new_channels, index=None):
 
     if index is None:
         index = torch.randint(
-            low=0, high=out_channels, size=(new_channels - out_channels,)
+            low=0, high=out_channels, size=(new_channels - out_channels,),
         )
     module.weight = nn.Parameter(
-        torch.cat([weight, weight[index, :, :, :].clone()], dim=0), requires_grad=True
+        torch.cat([weight, weight[index, :, :, :].clone()], dim=0), requires_grad=True,
     )
 
     module.out_channels = new_channels
@@ -54,16 +54,16 @@ def BNWider(module, new_features, index=None):
 
     if index is None:
         index = torch.randint(
-            low=0, high=num_features, size=(new_features - num_features,)
+            low=0, high=num_features, size=(new_features - num_features,),
         )
     module.running_mean = torch.cat([running_mean, running_mean[index].clone()])
     module.running_var = torch.cat([running_var, running_var[index].clone()])
     if module.affine:
         module.weight = nn.Parameter(
-            torch.cat([weight, weight[index].clone()], dim=0), requires_grad=True
+            torch.cat([weight, weight[index].clone()], dim=0), requires_grad=True,
         )
         module.bias = nn.Parameter(
-            torch.cat([bias, bias[index].clone()], dim=0), requires_grad=True
+            torch.cat([bias, bias[index].clone()], dim=0), requires_grad=True,
         )
 
         module.weight.out_index = index
@@ -77,7 +77,7 @@ def BNWider(module, new_features, index=None):
 
 
 def configure_optimizer(optimizer_old, optimizer_new):
-    for i, p in enumerate(optimizer_new.param_groups[0]["params"]):
+    for _i, p in enumerate(optimizer_new.param_groups[0]["params"]):
         if not hasattr(p, "raw_id"):
             optimizer_new.state[p] = optimizer_old.state[p]
             continue
@@ -121,13 +121,9 @@ def configure_optimizer(optimizer_old, optimizer_new):
                 del p.in_index
             if hasattr(p, "out_index"):
                 del p.out_index
-    print(
-        "%d momemtum buffers loaded" % (i + 1)  # pylint: disable=undefined-loop-variable
-    )
     return optimizer_new
 
 
 def configure_scheduler(scheduler_old, scheduler_new):
     scheduler_new.load_state_dict(scheduler_old.state_dict())
-    print("scheduler loaded")
     return scheduler_new

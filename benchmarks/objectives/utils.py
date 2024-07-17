@@ -1,8 +1,7 @@
 import time
 
-from neps.search_spaces.search_space import SearchSpace
-
 from benchmarks.evaluation.objective import Objective
+from neps.search_spaces.search_space import SearchSpace
 
 
 class ObjectiveWithAPI(Objective):

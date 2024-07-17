@@ -8,7 +8,7 @@ class NASBench201Cell(AbstractTopology):
         super().__init__()
 
         self.name = "cell"
-        self.create_graph(dict(zip(self.edge_list, edge_vals)))
+        self.create_graph(dict(zip(self.edge_list, edge_vals, strict=False)))
 
         # Assign dummy variables as node attributes:
         for i in self.nodes:
@@ -24,7 +24,7 @@ class Residual3(AbstractTopology):
         super().__init__()
 
         self.name = "residual_3"
-        self.create_graph(dict(zip(self.edge_list, edge_vals)))
+        self.create_graph(dict(zip(self.edge_list, edge_vals, strict=False)))
         self.set_scope(self.name, recursively=False)
 
 
@@ -34,5 +34,5 @@ class Diamond3(AbstractTopology):
     def __init__(self, *edge_vals):
         super().__init__()
         self.name = "diamond_3"
-        self.create_graph(dict(zip(self.edge_list, edge_vals)))
+        self.create_graph(dict(zip(self.edge_list, edge_vals, strict=False)))
         self.set_scope(self.name, recursively=False)

@@ -1,15 +1,13 @@
 import os
 
 import numpy as np
-import torchvision.datasets as datasets
-import torchvision.transforms as transforms
+from torchvision import datasets, transforms
 
 
 def generate_n(n, class_idx, class_dict, data):
     xs, ys, metainfo = [], [], []
 
-    for i in range(n):
-        print("\r{}/{}".format(i, n), end="")
+    for _i in range(n):
         n_classes = np.random.choice([1, 2, 3, 4])
 
         images = []
@@ -25,7 +23,7 @@ def generate_n(n, class_idx, class_dict, data):
         elif n_classes == 3:
             classes = np.random.choice(class_idx, 3, replace=False)
             images += list(
-                np.random.choice(class_dict[classes[0]], size=2, replace=False)
+                np.random.choice(class_dict[classes[0]], size=2, replace=False),
             )
             for c in classes[1:]:
                 images += list(np.random.choice(class_dict[c], size=1, replace=False))
@@ -67,7 +65,7 @@ def load_cifartile_data(metainfo=False):
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(MEAN, STD),
-            ]
+            ],
         ),
     )
     test_data = datasets.CIFAR10(
@@ -75,7 +73,7 @@ def load_cifartile_data(metainfo=False):
         train=False,
         download=download,
         transform=transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize(MEAN, STD)]
+            [transforms.ToTensor(), transforms.Normalize(MEAN, STD)],
         ),
     )
 
@@ -95,14 +93,14 @@ def load_cifartile_data(metainfo=False):
 
     if metainfo:
         train_x, train_y, metainfo = generate_n(
-            600, class_idx, train_class_dict, train_data
+            600, class_idx, train_class_dict, train_data,
         )
         test_x, test_y, _ = generate_n(100, class_idx, test_class_dict, test_data)
 
         return [train_x, train_y], [test_x, test_y], metainfo
     else:
         train_x, train_y, metainfo = generate_n(
-            60000, class_idx, train_class_dict, train_data
+            60000, class_idx, train_class_dict, train_data,
         )
         test_x, test_y, _ = generate_n(10000, class_idx, test_class_dict, test_data)
 

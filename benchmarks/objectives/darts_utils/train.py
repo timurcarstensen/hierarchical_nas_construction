@@ -4,15 +4,14 @@ import sys
 
 import numpy as np
 import torch
-import torch.backends.cudnn as cudnn
-import torch.nn as nn
 import torch.utils
 import torchvision.datasets as dset
-
 from benchmarks.search_spaces.darts_cnn import utils
 from benchmarks.search_spaces.darts_cnn.model import (
     NetworkCIFAR as Network,
 )
+from torch import nn
+from torch.backends import cudnn
 
 TORCH_VERSION = torch.__version__
 
@@ -69,7 +68,6 @@ def train_evaluation(genotype, data, seed, save_path):
     # genotype = eval("genotypes.%s" % args.arch)
     # print("---------Genotype---------")
     logging.info(genotype)
-    print("--------------------------")
     model = Network(init_channels, CIFAR_CLASSES, layers, auxiliary, genotype)
     if str(TORCH_VERSION) == "1.3.1":
         logging.info("Data Parallel")
@@ -91,29 +89,29 @@ def train_evaluation(genotype, data, seed, save_path):
         train_transform,
         valid_transform,
     ) = utils._data_transforms_cifar10(  # pylint: disable=protected-access
-        cutout, cutout_length
+        cutout, cutout_length,
     )
     if dataset == "cifar100":
         train_data = dset.CIFAR100(
-            root=data, train=True, download=True, transform=train_transform
+            root=data, train=True, download=True, transform=train_transform,
         )
         valid_data = dset.CIFAR100(
-            root=data, train=False, download=True, transform=valid_transform
+            root=data, train=False, download=True, transform=valid_transform,
         )
     else:
         train_data = dset.CIFAR10(
-            root=data, train=True, download=True, transform=train_transform
+            root=data, train=True, download=True, transform=train_transform,
         )
         valid_data = dset.CIFAR10(
-            root=data, train=False, download=True, transform=valid_transform
+            root=data, train=False, download=True, transform=valid_transform,
         )
 
     train_queue = torch.utils.data.DataLoader(
-        train_data, batch_size=batch_size, shuffle=True, pin_memory=True
+        train_data, batch_size=batch_size, shuffle=True, pin_memory=True,
     )
 
     valid_queue = torch.utils.data.DataLoader(
-        valid_data, batch_size=batch_size, shuffle=False, pin_memory=True
+        valid_data, batch_size=batch_size, shuffle=False, pin_memory=True,
     )
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, float(epochs))
@@ -179,7 +177,7 @@ def train(
     model.train()
 
     for step, (input, target) in enumerate(  # pylint: disable=redefined-builtin
-        train_queue
+        train_queue,
     ):
         input = input.cuda()
         target = target.cuda(non_blocking=True)
@@ -214,7 +212,7 @@ def infer(valid_queue, model, criterion, report_freq):
 
     with torch.no_grad():
         for step, (input, target) in enumerate(  # pylint: disable=redefined-builtin
-            valid_queue
+            valid_queue,
         ):
             input = input.cuda()
             target = target.cuda(non_blocking=True)

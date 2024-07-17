@@ -22,7 +22,7 @@ from .p_utils import get_layer_metric_array
 @measure("synflow", bn=False, mode="param")
 @measure("synflow_bn", bn=True, mode="param")
 def compute_synflow_per_weight(
-    net, inputs, targets, mode, split_data=1, loss_fn=None
+    net, inputs, targets, mode, split_data=1, loss_fn=None,
 ):  # pylint: disable=unused-argument
 
     device = inputs.device
@@ -32,7 +32,7 @@ def compute_synflow_per_weight(
     net.double()
     input_dim = list(inputs[0, :].shape)
     # inputs = torch.ones([1] + input_dim).to(device)
-    inputs = torch.ones([1] + input_dim).double().to(device)
+    inputs = torch.ones([1, *input_dim]).double().to(device)
     output = net.forward(inputs)
 
     # convert params to their abs. Keep sign for converting it back.
@@ -59,7 +59,7 @@ def compute_synflow_per_weight(
     net.double()
     input_dim = list(inputs[0, :].shape)
     # inputs = torch.ones([1] + input_dim).to(device)
-    inputs = torch.ones([1] + input_dim).double().to(device)
+    inputs = torch.ones([1, *input_dim]).double().to(device)
     output = net.forward(inputs)
     torch.sum(output).backward()
 

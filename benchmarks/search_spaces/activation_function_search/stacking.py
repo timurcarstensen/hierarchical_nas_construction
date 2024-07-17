@@ -4,7 +4,7 @@ from neps.search_spaces.graph_grammar.primitives import AbstractPrimitive
 
 class Stacking(AbstractPrimitive):
     def __init__(
-        self, **kwargs
+        self, **kwargs,
     ):  # pylint:disable=W0613
         super().__init__(locals())
 

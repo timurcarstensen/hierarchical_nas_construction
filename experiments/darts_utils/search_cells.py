@@ -2,16 +2,15 @@ import random
 from copy import deepcopy
 
 import torch
-import torch.nn as nn
-
 from experiments.darts_utils.cell_operations import OPS
+from torch import nn
 
 
 # This module is used for NAS-Bench-201, represents a small search space with a complete DAG
 class NAS201SearchCell(nn.Module):
 
   def __init__(self, C_in, C_out, stride, max_nodes, op_names, affine=False, track_running_stats=True):
-    super(NAS201SearchCell, self).__init__()
+    super().__init__()
 
     self.op_names  = deepcopy(op_names)
     self.edges     = nn.ModuleDict()
@@ -20,28 +19,27 @@ class NAS201SearchCell(nn.Module):
     self.out_dim   = C_out
     for i in range(1, max_nodes):
       for j in range(i):
-        node_str = '{:}<-{:}'.format(i, j)
+        node_str = f"{i}<-{j}"
         if j == 0:
           xlists = [OPS[op_name](C_in , C_out, stride, affine, track_running_stats) for op_name in op_names]
         else:
           xlists = [OPS[op_name](C_in , C_out,      1, affine, track_running_stats) for op_name in op_names]
         self.edges[ node_str ] = nn.ModuleList( xlists )
-    self.edge_keys  = sorted(list(self.edges.keys()))
+    self.edge_keys  = sorted(self.edges.keys())
     self.edge2index = {key:i for i, key in enumerate(self.edge_keys)}
     self.num_edges  = len(self.edges)
 
   def extra_repr(self):
-    string = 'info :: {max_nodes} nodes, inC={in_dim}, outC={out_dim}'.format(**self.__dict__)
-    return string
+    return "info :: {max_nodes} nodes, inC={in_dim}, outC={out_dim}".format(**self.__dict__)
 
   def forward(self, inputs, weightss):
     nodes = [inputs]
     for i in range(1, self.max_nodes):
       inter_nodes = []
       for j in range(i):
-        node_str = '{:}<-{:}'.format(i, j)
+        node_str = f"{i}<-{j}"
         weights  = weightss[ self.edge2index[node_str] ]
-        inter_nodes.append( sum( layer(nodes[j]) * w for layer, w in zip(self.edges[node_str], weights) ) )
+        inter_nodes.append( sum( layer(nodes[j]) * w for layer, w in zip(self.edges[node_str], weights, strict=False) ) )
       nodes.append( sum(inter_nodes) )
     return nodes[-1]
 
@@ -51,7 +49,7 @@ class NAS201SearchCell(nn.Module):
     for i in range(1, self.max_nodes):
       inter_nodes = []
       for j in range(i):
-        node_str = '{:}<-{:}'.format(i, j)
+        node_str = f"{i}<-{j}"
         weights  = hardwts[ self.edge2index[node_str] ]
         argmaxs  = index[ self.edge2index[node_str] ].item()
         weigsum  = sum( weights[_ie] * edge(nodes[j]) if _ie == argmaxs else weights[_ie] for _ie, edge in enumerate(self.edges[node_str]) )
@@ -65,10 +63,10 @@ class NAS201SearchCell(nn.Module):
     for i in range(1, self.max_nodes):
       inter_nodes = []
       for j in range(i):
-        node_str = '{:}<-{:}'.format(i, j)
+        node_str = f"{i}<-{j}"
         weights  = weightss[ self.edge2index[node_str] ]
         #aggregation = sum( layer(nodes[j]) * w for layer, w in zip(self.edges[node_str], weights) ) / weights.numel()
-        aggregation = sum( layer(nodes[j]) * w for layer, w in zip(self.edges[node_str], weights) )
+        aggregation = sum( layer(nodes[j]) * w for layer, w in zip(self.edges[node_str], weights, strict=False) )
         inter_nodes.append( aggregation )
       nodes.append( sum(inter_nodes) )
     return nodes[-1]
@@ -80,11 +78,11 @@ class NAS201SearchCell(nn.Module):
       while True: # to avoid select zero for all ops
         sops, has_non_zero = [], False
         for j in range(i):
-          node_str   = '{:}<-{:}'.format(i, j)
+          node_str   = f"{i}<-{j}"
           candidates = self.edges[node_str]
           select_op  = random.choice(candidates)
           sops.append( select_op )
-          if not hasattr(select_op, 'is_zero') or select_op.is_zero is False: has_non_zero=True
+          if not hasattr(select_op, "is_zero") or select_op.is_zero is False: has_non_zero=True
         if has_non_zero: break
       inter_nodes = []
       for j, select_op in enumerate(sops):
@@ -98,7 +96,7 @@ class NAS201SearchCell(nn.Module):
     for i in range(1, self.max_nodes):
       inter_nodes = []
       for j in range(i):
-        node_str = '{:}<-{:}'.format(i, j)
+        node_str = f"{i}<-{j}"
         weights  = weightss[ self.edge2index[node_str] ]
         inter_nodes.append( self.edges[node_str][ weights.argmax().item() ]( nodes[j] ) )
         #inter_nodes.append( sum( layer(nodes[j]) * w for layer, w in zip(self.edges[node_str], weights) ) )
@@ -112,7 +110,7 @@ class NAS201SearchCell(nn.Module):
       cur_op_node = structure.nodes[i-1]
       inter_nodes = []
       for op_name, j in cur_op_node:
-        node_str = '{:}<-{:}'.format(i, j)
+        node_str = f"{i}<-{j}"
         op_index = self.op_names.index( op_name )
         inter_nodes.append( self.edges[node_str][op_index]( nodes[j] ) )
       nodes.append( sum(inter_nodes) )
@@ -127,8 +125,7 @@ def channel_shuffle(x, groups):
     channels_per_group, height, width)
   x = torch.transpose(x, 1, 2).contiguous()
   # flatten
-  x = x.view(batchsize, -1, height, width)
-  return x
+  return x.view(batchsize, -1, height, width)
 
 
 class NAS201SearchCell_PartialChannel(NAS201SearchCell):
@@ -144,13 +141,13 @@ class NAS201SearchCell_PartialChannel(NAS201SearchCell):
     self.out_dim   = C_out
     for i in range(1, max_nodes):
       for j in range(i):
-        node_str = '{:}<-{:}'.format(i, j)
+        node_str = f"{i}<-{j}"
         if j == 0:
           xlists = [OPS[op_name](C_in//self.k , C_out//self.k, stride, affine, track_running_stats) for op_name in op_names]
         else:
           xlists = [OPS[op_name](C_in//self.k , C_out//self.k,      1, affine, track_running_stats) for op_name in op_names]
         self.edges[ node_str ] = nn.ModuleList( xlists )
-    self.edge_keys  = sorted(list(self.edges.keys()))
+    self.edge_keys  = sorted(self.edges.keys())
     self.edge2index = {key:i for i, key in enumerate(self.edge_keys)}
     self.num_edges  = len(self.edges)
 
@@ -158,19 +155,18 @@ class NAS201SearchCell_PartialChannel(NAS201SearchCell):
     dim_2 = x.shape[1]
     xtemp = x[ : , :  dim_2//self.k, :, :]
     xtemp2 = x[ : ,  dim_2//self.k:, :, :]
-    temp1 = sum(w * op(xtemp) for w, op in zip(weights, ops) if not w == 0)
+    temp1 = sum(w * op(xtemp) for w, op in zip(weights, ops, strict=False) if w != 0)
     if self.k == 1:
       return temp1
     ans = torch.cat([temp1,xtemp2],dim=1)
-    ans = channel_shuffle(ans,self.k)
-    return ans
+    return channel_shuffle(ans,self.k)
 
   def forward(self, inputs, weightss):
     nodes = [inputs]
     for i in range(1, self.max_nodes):
       inter_nodes = []
       for j in range(i):
-        node_str = '{:}<-{:}'.format(i, j)
+        node_str = f"{i}<-{j}"
         weights  = weightss[ self.edge2index[node_str] ]
         inter_nodes.append(self.MixedOp(x=nodes[j], ops=self.edges[node_str], weights=weights))
       nodes.append( sum(inter_nodes) )
@@ -178,6 +174,6 @@ class NAS201SearchCell_PartialChannel(NAS201SearchCell):
 
   def wider(self, k):
     self.k = k
-    for key in self.edges.keys():
+    for key in self.edges:
       for op in self.edges[key]:
         op.wider(self.in_dim//k, self.out_dim//k)

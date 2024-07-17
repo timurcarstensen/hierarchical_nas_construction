@@ -1,15 +1,15 @@
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 support_types = ("str", "int", "bool", "float", "none")
 
 
 def convert_param(original_lists):
     assert isinstance(
-        original_lists, list
-    ), "The type is not right : {:}".format(original_lists)
+        original_lists, list,
+    ), f"The type is not right : {original_lists}"
     ctype, value = original_lists[0], original_lists[1]
     assert (
         ctype in support_types
@@ -30,7 +30,7 @@ def convert_param(original_lists):
         elif ctype == "none":
             if x.lower() != "none":
                 raise ValueError(
-                    f"For the none type, the value must be none instead of {x}"
+                    f"For the none type, the value must be none instead of {x}",
                 )
             x = None
         else:
@@ -42,11 +42,9 @@ def convert_param(original_lists):
 
 
 def load_config(
-    path: Path | str, extra: Optional[Dict[str, Any]] = None
+    path: Path | str, extra: dict[str, Any] | None = None,
 ) -> NamedTuple:
-    """
-    Load configuration from a JSON file and return it as a named tuple.
-    """
+    """Load configuration from a JSON file and return it as a named tuple."""
     path = str(path)
     assert os.path.exists(path), f"Can not find {path}"
     # Reading data back
@@ -54,11 +52,11 @@ def load_config(
         data = json.load(f)
     content = {k: convert_param(v) for k, v in data.items()}
     assert extra is None or isinstance(
-        extra, dict
-    ), "invalid type of extra : {:}".format(extra)
+        extra, dict,
+    ), f"invalid type of extra : {extra}"
     if isinstance(extra, dict):
         content = {**content, **extra}
     Arguments = NamedTuple(
-        "Configure", [(k, Any) for k in content.keys()]
+        "Configure", [(k, Any) for k in content],
     )
     return Arguments(**content)

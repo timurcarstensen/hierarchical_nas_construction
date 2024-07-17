@@ -42,7 +42,7 @@ def show_fashionMNIST_examples(x, y, save_path):
     plt.figure(figsize=(9, 9), dpi=100)
     for i in range(4):
         plt.subplot(2, 2, i + 1)
-        plt.title("y={}".format(y[i]))
+        plt.title(f"y={y[i]}")
         plt.imshow(image_normalization(x[i][0]), cmap="gray")
     plt.tight_layout()
     plt.savefig(save_path)

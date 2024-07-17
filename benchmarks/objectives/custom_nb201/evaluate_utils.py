@@ -5,6 +5,7 @@
 import math
 import random
 from bisect import bisect_right
+from typing import Generator, NamedTuple
 
 import numpy as np
 import torch
@@ -257,7 +258,9 @@ class CrossEntropyLabelSmooth(nn.Module):
         return (-targets * log_probs).mean(0).sum()
 
 
-def get_optim_scheduler(parameters, config):
+def get_optim_scheduler(
+    parameters: Generator[nn.Parameter, None, None], config: NamedTuple
+):
     assert (
         hasattr(config, "optim")
         and hasattr(config, "scheduler")
@@ -357,7 +360,9 @@ class AverageMeter:
         )
 
 
-def obtain_accuracy(output, target, topk=(1,)):
+def obtain_accuracy(
+    output: torch.Tensor, target: torch.Tensor, topk: tuple[int, ...] = (1,)
+):
     """Computes the precision@k for the specified values of k."""
     maxk = max(topk)
     batch_size = target.size(0)

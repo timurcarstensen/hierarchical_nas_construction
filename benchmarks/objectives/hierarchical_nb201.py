@@ -276,7 +276,7 @@ def get_dataloaders(
     if dataset == "cifar10" and not eval_mode:
         val_loaders = {
             "ori-test": DataLoader(
-                valid_data,
+                dataset=valid_data,
                 batch_size=config.batch_size // gradient_accumulations,
                 shuffle=False,
                 num_workers=workers,
@@ -399,16 +399,16 @@ def procedure(
     scaler: Optional[torch.cuda.amp.GradScaler] = None,
     gradient_accumulations: Optional[int] = None,
 ):
-    if mode == "train":
-        network.train()
-    elif mode == "valid":
-        network.eval()
-        top1, top5 = AverageMeter(), AverageMeter()
-    else:
-        raise ValueError(f"The mode is not right: {mode}")
+    match mode:
+        case "train":
+            network.train()
+            network.zero_grad()
+        case "valid":
+            network.eval()
+            top1, top5 = AverageMeter(), AverageMeter()
+        case _:
+            raise ValueError(f"The mode is not right: {mode}")
 
-    if mode == "train":
-        network.zero_grad()
     for i, (inputs, targets) in enumerate(dataloader):
         if mode == "train":
             scheduler.update(None, 1.0 * i / len(dataloader))
@@ -422,23 +422,26 @@ def procedure(
         with torch.cuda.amp.autocast():
             logits = network(inputs)
             loss = criterion(logits, targets)
-        # backward
-        if mode == "train":
-            scaler.scale(loss / gradient_accumulations).backward()
-            if (i + 1) % gradient_accumulations == 0:
-                scaler.step(optimizer)
-                scaler.update()
-                network.zero_grad()
-        # record loss and accuracy
-        if mode == "valid":
-            prec1, prec5 = obtain_accuracy(
-                logits.data,
-                targets.data,
-                topk=(1, 5),
-            )
-            top1.update(prec1.item(), inputs.size(0))
-            top5.update(prec5.item(), inputs.size(0))
-        # count time
+
+        match mode:
+            case "train":
+                # backward
+                scaler.scale(loss / gradient_accumulations).backward()
+                if (i + 1) % gradient_accumulations == 0:
+                    scaler.step(optimizer)
+                    scaler.update()
+                    network.zero_grad()
+
+            case "valid":
+                # record loss and accuracy
+                prec1, prec5 = obtain_accuracy(
+                    output=logits.data,
+                    target=targets.data,
+                    topk=(1, 5),
+                )
+                top1.update(val=prec1.item(), n=inputs.size(0))
+                top5.update(val=prec5.item(), n=inputs.size(0))
+
     if mode == "valid":
         return top1.avg, top5.avg
     else:
@@ -448,8 +451,8 @@ def procedure(
 def evaluate_for_seed(
     model: nn.Module,
     config: NamedTuple,
-    train_loader: DataLoader,
-    valid_loaders: dict[str, DataLoader],
+    train_dataloader: DataLoader,
+    val_dataloaders: dict[str, DataLoader],
     gradient_accumulations: int,
     workers: int,
     working_directory: str | Path | None = None,
@@ -457,8 +460,8 @@ def evaluate_for_seed(
 ) -> dict[str, Any]:
     # get optimizer, scheduler, criterion
     optimizer, scheduler, criterion = get_optim_scheduler(
-        model.parameters(),
-        config,
+        parameters=model.parameters(),
+        config=config,
     )
     scaler = torch.cuda.amp.GradScaler()
     if workers > 1:
@@ -481,7 +484,7 @@ def evaluate_for_seed(
     for epoch in range(start_epoch, total_epochs):
         scheduler.update(epoch, 0.0)
         _ = procedure(
-            dataloader=train_loader,
+            dataloader=train_dataloader,
             network=model,
             criterion=criterion,
             scheduler=scheduler,
@@ -494,9 +497,9 @@ def evaluate_for_seed(
     # evaluate
     with torch.no_grad():
         out_dict = {}
-        for key, xloader in valid_loaders.items():
+        for key, dataloader in val_dataloaders.items():
             valid_acc1, valid_acc5 = procedure(
-                dataloader=xloader,
+                dataloader=dataloader,
                 network=model,
                 criterion=criterion,
                 scheduler=None,
@@ -605,8 +608,8 @@ class NB201Pipeline(Objective):
                     out_dict = evaluate_for_seed(
                         model=model,
                         config=config,
-                        train_loader=train_loader,
-                        valid_loaders=val_loaders,
+                        train_dataloader=train_loader,
+                        val_dataloaders=val_loaders,
                         gradient_accumulations=gradient_accumulations,
                         workers=self.workers,
                         working_directory=working_directory,
@@ -616,8 +619,8 @@ class NB201Pipeline(Objective):
                     out_dict = evaluate_for_seed(
                         model=model,
                         config=config,
-                        train_loader=train_loader,
-                        valid_loaders=val_loaders,
+                        train_dataloader=train_loader,
+                        val_dataloaders=val_loaders,
                         gradient_accumulations=gradient_accumulations,
                         workers=self.workers,
                     )
@@ -656,6 +659,7 @@ class NB201Pipeline(Objective):
         return results
 
     def get_train_loader(self):
+        # NOTE: only used for AREA (i.e., NAS with ZCPs)
         _, train_loader, _ = get_dataloaders(
             self.dataset,
             self.data_path,
